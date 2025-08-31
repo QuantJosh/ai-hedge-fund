@@ -5,8 +5,10 @@ from pydantic import BaseModel
 from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
 from src.graph.state import AgentState
+from src.utils.llm_logger import log_llm_call
 
 
+@log_llm_call()
 def call_llm(
     prompt: any,
     pydantic_model: type[BaseModel],

@@ -45,7 +45,11 @@ By using this software, you agree to use it solely for learning purposes.
 - [How to Install](#how-to-install)
 - [How to Run](#how-to-run)
   - [⌨️ Command Line Interface](#️-command-line-interface)
-  - [🖥️ Web Application (NEW!)](#️-web-application)
+  - [🖥️ Web Application](#️-web-application)
+- [📊 Logging and Analysis (NEW!)](#-logging-and-analysis-new)
+  - [Quick Start](#quick-start)
+  - [Log Viewing Options](#log-viewing-options)
+  - [Advanced Analysis](#advanced-analysis)
 - [Contributing](#contributing)
 - [Feature Requests](#feature-requests)
 - [License](#license)
@@ -273,6 +277,121 @@ For detailed setup instructions, troubleshooting, and advanced configuration opt
 - [Full-Stack App Documentation](./app/README.md)
 - [Frontend Documentation](./app/frontend/README.md)  
 - [Backend Documentation](./app/backend/README.md)
+
+## 📊 Logging and Analysis (NEW!)
+
+The AI Hedge Fund now includes a comprehensive logging system that tracks all agent decisions, LLM calls, and system operations. This provides valuable insights into how the AI agents make their investment decisions.
+
+### Quick Start
+
+#### View Logs Instantly
+```bash
+# Launch the interactive log viewer
+python view_logs.py
+```
+
+This will present you with multiple viewing options:
+- 🎨 **Pretty Terminal View** (Recommended) - Colorized, easy-to-read format
+- 📊 **HTML Interactive Viewer** - Web-based interface with filtering
+- 📋 **Simple Text View** - Basic text output
+- 🔍 **Filter by Error Level** - Show only errors/warnings
+- 📈 **Show Statistics Only** - Performance and cost analysis
+
+#### Quick Run with Logging
+```bash
+# Run the hedge fund with automatic logging
+./quick_run.sh --ticker AAPL,MSFT,NVDA
+
+# Or on Windows
+quick_run.bat --ticker AAPL,MSFT,NVDA
+```
+
+### Log Viewing Options
+
+#### 1. Interactive HTML Viewer
+```bash
+# Generate and open HTML report
+python generate_log_html.py
+
+# Or use the standalone HTML viewer
+# Open tools/log_viewer.html in your browser and drag/drop log files
+```
+
+#### 2. Terminal Viewers
+```bash
+# Pretty colored output with details
+python tools/pretty_logs.py --find --details
+
+# Simple text viewer
+python tools/log_viewer.py --find
+
+# Filter by specific criteria
+python tools/pretty_logs.py --find --level ERROR --agent warren_buffett
+```
+
+#### 3. Analysis Tools
+```bash
+# Analyze LLM API costs and performance
+python analyze_llm_calls.py
+
+# Verify response completeness
+python verify_response_completeness.py
+
+# Show full LLM responses
+python show_full_responses.py
+```
+
+### Advanced Analysis
+
+#### Configuration-Based Runs
+```bash
+# Use configuration file for complex setups
+python run_with_config.py
+```
+
+Example `config.yaml`:
+```yaml
+tickers: ["AAPL", "MSFT", "NVDA", "GOOGL"]
+start_date: "2024-01-01"
+end_date: "2024-12-31"
+initial_cash: 1000000
+selected_analysts: ["warren_buffett", "peter_lynch", "ben_graham"]
+model_name: "gpt-4o"
+show_reasoning: true
+logging:
+  enabled: true
+  level: "INFO"
+  console_format: "human"
+```
+
+#### Log Analysis Features
+
+**What Gets Logged:**
+- 🤖 Agent execution start/end times
+- 🧠 LLM API requests and responses  
+- 📊 Data fetching operations
+- 🎯 Investment decisions and reasoning
+- ⚙️ System events and errors
+- 💰 API costs and token usage
+
+**Analysis Capabilities:**
+- Performance metrics (response times, success rates)
+- Cost analysis (API usage, token consumption)
+- Decision tracking (agent consensus, confidence levels)
+- Error monitoring and debugging
+- Historical trend analysis
+
+#### Log File Locations
+```
+logs/
+├── YYYYMMDD_HHMMSS/
+│   ├── structured_log.jsonl    # Machine-readable logs
+│   ├── detailed.log           # Human-readable logs
+│   └── console.log            # Console output
+└── latest -> YYYYMMDD_HHMMSS/ # Symlink to latest session
+```
+
+For detailed documentation, see [Logging Guide](./docs/LOGGING_GUIDE.md).
 
 
 ## Contributing

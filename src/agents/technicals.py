@@ -8,7 +8,8 @@ import json
 import pandas as pd
 import numpy as np
 
-from src.tools.api import get_prices, prices_to_df
+from src.tools.api import get_prices_with_config, prices_to_df
+from src.utils.data_config import get_data_config
 from src.utils.progress import progress
 
 
@@ -46,6 +47,10 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
     end_date = data["end_date"]
     tickers = data["tickers"]
     api_key = get_api_key_from_state(state, "FINANCIAL_DATASETS_API_KEY")
+    
+    # Get data source configuration
+    config = state.get("metadata", {}).get("config", {})
+    data_config = get_data_config(config)
     # Initialize analysis for each ticker
     technical_analysis = {}
 
@@ -53,10 +58,11 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
         progress.update_status(agent_id, ticker, "Analyzing price data")
 
         # Get the historical price data
-        prices = get_prices(
+        prices = get_prices_with_config(
             ticker=ticker,
             start_date=start_date,
             end_date=end_date,
+            data_config=data_config,
             api_key=api_key,
         )
 

@@ -39,6 +39,7 @@ class Backtester:
         model_provider: str = "OpenAI",
         selected_analysts: list[str] = [],
         initial_margin_requirement: float = 0.0,
+        config: dict = None,
     ):
         """
         :param agent: The trading agent (Callable).
@@ -59,6 +60,7 @@ class Backtester:
         self.model_name = model_name
         self.model_provider = model_provider
         self.selected_analysts = selected_analysts
+        self.config = config or {}
 
         # Initialize portfolio with support for long/short positions
         self.portfolio_values = []
@@ -350,6 +352,7 @@ class Backtester:
                 model_name=self.model_name,
                 model_provider=self.model_provider,
                 selected_analysts=self.selected_analysts,
+                config=self.config,
             )
             decisions = output["decisions"]
             analyst_signals = output["analyst_signals"]

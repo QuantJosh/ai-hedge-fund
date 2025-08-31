@@ -95,6 +95,16 @@
     "provider": "OpenRouter"
   },
   {
+    "display_name": "Gemini 2.5 Pro (OpenRouter)",
+    "model_name": "google/gemini-2.5-pro",
+    "provider": "OpenRouter"
+  },
+  {
+    "display_name": "Gemini 2.0 Flash Exp Free (OpenRouter)",
+    "model_name": "google/gemini-2.0-flash-exp:free",
+    "provider": "OpenRouter"
+  },
+  {
     "display_name": "GigaChat-2-Max",
     "model_name": "GigaChat-2-Max",
     "provider": "GigaChat"

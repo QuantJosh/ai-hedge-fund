@@ -5,7 +5,11 @@ import pandas as pd
 import numpy as np
 import json
 from src.utils.api_key import get_api_key_from_state
-from src.tools.api import get_insider_trades, get_company_news
+from src.tools.api import (
+    get_insider_trades_with_config, 
+    get_company_news_with_config
+)
+from src.utils.data_config import get_data_config
 
 
 ##### Sentiment Agent #####
@@ -15,6 +19,10 @@ def sentiment_analyst_agent(state: AgentState, agent_id: str = "sentiment_analys
     end_date = data.get("end_date")
     tickers = data.get("tickers")
     api_key = get_api_key_from_state(state, "FINANCIAL_DATASETS_API_KEY")
+    
+    # Get data source configuration
+    config = state.get("metadata", {}).get("config", {})
+    data_config = get_data_config(config)
     # Initialize sentiment analysis for each ticker
     sentiment_analysis = {}
 
@@ -22,9 +30,10 @@ def sentiment_analyst_agent(state: AgentState, agent_id: str = "sentiment_analys
         progress.update_status(agent_id, ticker, "Fetching insider trades")
 
         # Get the insider trades
-        insider_trades = get_insider_trades(
+        insider_trades = get_insider_trades_with_config(
             ticker=ticker,
             end_date=end_date,
+            data_config=data_config,
             limit=1000,
             api_key=api_key,
         )
@@ -38,7 +47,13 @@ def sentiment_analyst_agent(state: AgentState, agent_id: str = "sentiment_analys
         progress.update_status(agent_id, ticker, "Fetching company news")
 
         # Get the company news
-        company_news = get_company_news(ticker, end_date, limit=100, api_key=api_key)
+        company_news = get_company_news_with_config(
+            ticker=ticker, 
+            end_date=end_date, 
+            data_config=data_config,
+            limit=100, 
+            api_key=api_key
+        )
 
         # Get the sentiment from the company news
         sentiment = pd.Series([n.sentiment for n in company_news]).dropna()

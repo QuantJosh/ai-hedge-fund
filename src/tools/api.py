@@ -18,6 +18,8 @@ from src.data.models import (
     InsiderTradeResponse,
     CompanyFactsResponse,
 )
+from src.tools.free_news import get_company_news_free
+from src.utils.data_config import DataSourceConfig
 
 # Global cache instance
 _cache = get_cache()
@@ -340,3 +342,99 @@ def prices_to_df(prices: list[Price]) -> pd.DataFrame:
 def get_price_data(ticker: str, start_date: str, end_date: str, api_key: str = None) -> pd.DataFrame:
     prices = get_prices(ticker, start_date, end_date, api_key=api_key)
     return prices_to_df(prices)
+
+
+# Configuration-aware data fetching functions
+def get_prices_with_config(
+    ticker: str, 
+    start_date: str, 
+    end_date: str, 
+    data_config: DataSourceConfig,
+    api_key: str = None
+) -> list[Price]:
+    """Fetch price data with configuration awareness"""
+    if not data_config.should_fetch_price_data():
+        if data_config.use_mock_data:
+            return data_config.generate_mock_prices(ticker, start_date, end_date)
+        return []
+    
+    return get_prices(ticker, start_date, end_date, api_key)
+
+
+def get_financial_metrics_with_config(
+    ticker: str,
+    end_date: str,
+    data_config: DataSourceConfig,
+    period: str = "ttm",
+    limit: int = 10,
+    api_key: str = None,
+) -> list[FinancialMetrics]:
+    """Fetch financial metrics with configuration awareness"""
+    if not data_config.should_fetch_financial_data():
+        if data_config.use_mock_data:
+            return data_config.generate_mock_financial_metrics(ticker, limit)
+        return []
+    
+    return get_financial_metrics(ticker, end_date, period, limit, api_key)
+
+
+def get_insider_trades_with_config(
+    ticker: str,
+    end_date: str,
+    data_config: DataSourceConfig,
+    start_date: str | None = None,
+    limit: int = 1000,
+    api_key: str = None,
+) -> list[InsiderTrade]:
+    """Fetch insider trades with configuration awareness"""
+    if not data_config.should_fetch_insider_trades():
+        if data_config.use_mock_data:
+            return data_config.generate_mock_insider_trades(ticker, min(limit, 50))
+        return []
+    
+    return get_insider_trades(ticker, end_date, start_date, limit, api_key)
+
+
+def get_company_news_with_config(
+    ticker: str,
+    end_date: str,
+    data_config: DataSourceConfig,
+    start_date: str | None = None,
+    limit: int = 1000,
+    api_key: str = None,
+) -> list[CompanyNews]:
+    """Fetch company news with configuration awareness"""
+    if not data_config.should_fetch_news():
+        if data_config.use_mock_data:
+            return data_config.generate_mock_news(ticker, start_date or end_date, end_date, limit)
+        return []
+    
+    # Use free news source if configured
+    news_source = data_config.get_news_source()
+    if news_source in ['yfinance', 'alpha_vantage', 'mock']:
+        return get_company_news_free(
+            ticker=ticker,
+            end_date=end_date,
+            start_date=start_date,
+            limit=limit,
+            provider=news_source
+        )
+    
+    # Fallback to original financial datasets API
+    return get_company_news(ticker, end_date, start_date, limit, api_key)
+
+
+def search_line_items_with_config(
+    ticker: str,
+    line_items: list[str],
+    end_date: str,
+    data_config: DataSourceConfig,
+    period: str = "ttm",
+    limit: int = 10,
+    api_key: str = None,
+) -> list[LineItem]:
+    """Search line items with configuration awareness"""
+    if not data_config.should_fetch_financial_data():
+        return []
+    
+    return search_line_items(ticker, line_items, end_date, period, limit, api_key)

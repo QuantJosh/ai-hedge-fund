@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hedge Fund Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .header h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls input, .controls select {
+            background: #3d3d3d;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .controls button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .controls button:hover {
+            background: #45a049;
+        }
+
+        .log-entry {
+            background: #2d2d2d;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            overflow: hidden;
+            border-left: 4px solid #666;
+        }
+
+        .log-entry.system { border-left-color: #2196F3; }
+        .log-entry.agent_start { border-left-color: #4CAF50; }
+        .log-entry.agent_end { border-left-color: #4CAF50; }
+        .log-entry.model_request { border-left-color: #9C27B0; }
+        .log-entry.model_response { border-left-color: #9C27B0; }
+        .log-entry.data_fetch { border-left-color: #FF9800; }
+        .log-entry.decision { border-left-color: #F44336; }
+        .log-entry.error { border-left-color: #F44336; }
+
+        .log-header {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .log-header:hover {
+            background: #3d3d3d;
+        }
+
+        .log-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .log-timestamp {
+            color: #888;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            min-width: 80px;
+        }
+
+        .log-level {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .log-level.DEBUG { background: #666; color: white; }
+        .log-level.INFO { background: #2196F3; color: white; }
+        .log-level.WARNING { background: #FF9800; color: white; }
+        .log-level.ERROR { background: #F44336; color: white; }
+
+        .log-agent {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .log-ticker {
+            background: #3d3d3d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #00BCD4;
+        }
+
+        .log-message {
+            flex: 1;
+            margin-left: 10px;
+        }
+
+        .log-duration {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .log-details {
+            padding: 15px;
+            background: #1a1a1a;
+            border-top: 1px solid #444;
+            display: none;
+        }
+
+        .log-details.expanded {
+            display: block;
+        }
+
+        .detail-section {
+            margin-bottom: 15px;
+        }
+
+        .detail-title {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .detail-content {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .stats {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .no-logs {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #666;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-drop-zone:hover {
+            border-color: #4CAF50;
+            background: #2d2d2d;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #4CAF50;
+            background: #2d2d2d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Hedge Fund Log Viewer</h1>
+            <p>Interactive viewer for JSONL log files with filtering and search capabilities</p>
+        </div>
+
+        <div class="file-drop-zone" onclick="document.getElementById('fileInput').click()">
+            <p>📁 Click here or drag & drop a JSONL log file</p>
+            <p style="color: #888; font-size: 12px;">Supports .jsonl files from the AI Hedge Fund logging system</p>
+        </div>
+
+        <input type="file" id="fileInput" accept=".jsonl" />
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="🔍 Search logs..." />
+            <select id="levelFilter">
+                <option value="">All Levels</option>
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+            </select>
+            <select id="typeFilter">
+                <option value="">All Types</option>
+                <option value="system">System</option>
+                <option value="agent_start">Agent Start</option>
+                <option value="agent_end">Agent End</option>
+                <option value="model_request">Model Request</option>
+                <option value="model_response">Model Response</option>
+                <option value="data_fetch">Data Fetch</option>
+                <option value="decision">Decision</option>
+                <option value="error">Error</option>
+            </select>
+            <input type="text" id="agentFilter" placeholder="Agent name..." />
+            <button onclick="clearFilters()">Clear Filters</button>
+            <button onclick="exportFiltered()">Export Filtered</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value" id="totalLogs">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="filteredLogs">0</div>
+                <div class="stat-label">Filtered Logs</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">Errors</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgDuration">0ms</div>
+                <div class="stat-label">Avg Duration</div>
+            </div>
+        </div>
+
+        <div id="logContainer">
+            <div class="no-logs">
+                <p>No log file loaded. Please select a JSONL file to view logs.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allLogs = [];
+        let filteredLogs = [];
+
+        const iconMap = {
+            'system': '⚙️',
+            'agent_start': '🚀',
+            'agent_end': '✅',
+            'model_request': '🧠',
+            'model_response': '💭',
+            'data_fetch': '📊',
+            'decision': '🎯',
+            'error': '❌'
+        };
+
+        // File handling
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+        
+        // Drag and drop
+        const dropZone = document.querySelector('.file-drop-zone');
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                loadLogFile(files[0]);
+            }
+        });
+
+        // Filters
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('levelFilter').addEventListener('change', applyFilters);
+        document.getElementById('typeFilter').addEventListener('change', applyFilters);
+        document.getElementById('agentFilter').addEventListener('input', applyFilters);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                loadLogFile(file);
+            }
+        }
+
+        function loadLogFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const lines = content.split('\n').filter(line => line.trim());
+                    
+                    allLogs = [];
+                    for (let i = 0; i < lines.length; i++) {
+                        try {
+                            const log = JSON.parse(lines[i]);
+                            allLogs.push(log);
+                        } catch (err) {
+                            console.warn(`Invalid JSON on line ${i + 1}:`, err);
+                        }
+                    }
+                    
+                    if (allLogs.length > 0) {
+                        document.querySelector('.file-drop-zone').style.display = 'none';
+                        document.getElementById('stats').style.display = 'grid';
+                        applyFilters();
+                        updateStats();
+                    } else {
+                        alert('No valid log entries found in the file.');
+                    }
+                } catch (err) {
+                    alert('Error reading file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const level = document.getElementById('levelFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const agent = document.getElementById('agentFilter').value.toLowerCase();
+
+            filteredLogs = allLogs.filter(log => {
+                const matchesSearch = !search || 
+                    log.message?.toLowerCase().includes(search) ||
+                    log.agent?.toLowerCase().includes(search) ||
+                    log.ticker?.toLowerCase().includes(search);
+                
+                const matchesLevel = !level || log.level === level;
+                const matchesType = !type || log.type === type;
+                const matchesAgent = !agent || log.agent?.toLowerCase().includes(agent);
+
+                return matchesSearch && matchesLevel && matchesType && matchesAgent;
+            });
+
+            renderLogs();
+            updateStats();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logContainer');
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="no-logs"><p>No logs match the current filters.</p></div>';
+                return;
+            }
+
+            const html = filteredLogs.map((log, index) => {
+                const timestamp = formatTimestamp(log.timestamp);
+                const icon = iconMap[log.type] || '📝';
+                const duration = log.duration_ms ? formatDuration(log.duration_ms) : '';
+                
+                return `
+                    <div class="log-entry ${log.type}" data-index="${index}">
+                        <div class="log-header" onclick="toggleDetails(${index})">
+                            <span class="log-icon">${icon}</span>
+                            <span class="log-timestamp">${timestamp}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            ${log.ticker ? `<span class="log-ticker">${log.ticker}</span>` : ''}
+                            <span class="log-agent">${log.agent}</span>
+                            <span class="log-message">${log.message}</span>
+                            ${duration ? `<span class="log-duration">${duration}</span>` : ''}
+                        </div>
+                        <div class="log-details" id="details-${index}">
+                            ${renderLogDetails(log)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        function renderLogDetails(log) {
+            let html = '';
+
+            if (log.model) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-title">🧠 Model Information</div>
+                        <div class="detail-content">${JSON.stringify(log.model, null, 2)}</div>
+                    </div>
+                `;
+            }
+
+            if (log.data) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-title">📊 Data</div>
+                        <div class="detail-content">${JSON.stringify(log.data, null, 2)}</div>
+                    </div>
+                `;
+            }
+
+            if (log.error) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-title">❌ Error Information</div>
+                        <div class="detail-content">${JSON.stringify(log.error, null, 2)}</div>
+                    </div>
+                `;
+            }
+
+            return html || '<div class="detail-content">No additional details available.</div>';
+        }
+
+        function toggleDetails(index) {
+            const details = document.getElementById(`details-${index}`);
+            details.classList.toggle('expanded');
+        }
+
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString();
+            } catch {
+                return timestamp;
+            }
+        }
+
+        function formatDuration(ms) {
+            if (ms >= 1000) {
+                return `${(ms / 1000).toFixed(1)}s`;
+            }
+            return `${Math.round(ms)}ms`;
+        }
+
+        function updateStats() {
+            document.getElementById('totalLogs').textContent = allLogs.length;
+            document.getElementById('filteredLogs').textContent = filteredLogs.length;
+            
+            const errorCount = filteredLogs.filter(log => log.level === 'ERROR').length;
+            document.getElementById('errorCount').textContent = errorCount;
+
+            const durationsMs = filteredLogs
+                .filter(log => log.duration_ms)
+                .map(log => log.duration_ms);
+            
+            if (durationsMs.length > 0) {
+                const avgMs = durationsMs.reduce((a, b) => a + b, 0) / durationsMs.length;
+                document.getElementById('avgDuration').textContent = formatDuration(avgMs);
+            } else {
+                document.getElementById('avgDuration').textContent = 'N/A';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('levelFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            document.getElementById('agentFilter').value = '';
+            applyFilters();
+        }
+
+        function exportFiltered() {
+            if (filteredLogs.length === 0) {
+                alert('No logs to export.');
+                return;
+            }
+
+            const jsonl = filteredLogs.map(log => JSON.stringify(log)).join('\n');
+            const blob = new Blob([jsonl], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `filtered_logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.jsonl`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+# AI Hedge Fund Configuration File
+# Use this file to preset parameters and avoid manual configuration each time
+
+# Basic Settings
+hedge_fund:
+  # Stock ticker list - Single stock for testing
+  tickers: ["AAPL"]
+  
+  # Time range
+  start_date: "2024-01-01"  # Leave empty to auto-use 3 months ago
+  end_date: ""              # Leave empty to use today
+  
+  # Capital settings
+  initial_cash: 100000.0
+  margin_requirement: 0.0
+  
+  # Display options
+  show_reasoning: false  # Set to false for faster execution with many stocks
+  show_agent_graph: false
+
+# AI Analyst Configuration - Top 10 Best Analysts
+analysts:
+  # Select analysts that use news data
+  selected: [
+    "sentiment_analyst",   # Sentiment analysis using news and insider trades
+    "warren_buffett",      # Value investing approach
+    "peter_lynch"          # Growth investing approach
+  ]
+  
+  # Or use all analysts
+  use_all: false
+
+# Model Configuration
+model:
+  # Model provider: OpenAI, Anthropic, Groq, DeepSeek, OpenRouter, Ollama
+  provider: "OpenRouter"
+  
+  # Model name
+  name: "nousresearch/hermes-4-405b"
+  
+  # Use local Ollama
+  use_ollama: false
+
+# Backtest Configuration
+backtest:
+  # Run backtest instead of real-time analysis
+  enabled: false
+  
+  # Backtest time range - Full year 2024
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+  
+  # Initial capital
+  initial_capital: 100000.0
+  
+  # Margin requirement
+  margin_requirement: 0.0
+
+# Web Application Configuration
+web_app:
+  # Auto-start web application
+  auto_start: false
+  
+  # Port configuration
+  backend_port: 8000
+  frontend_port: 5173
+  
+  # Auto-open browser
+  auto_open_browser: true
+
+# Data Source Configuration
+data_sources:
+  # Enable/disable different data sources
+  enable_news: true           # Company news and sentiment analysis
+  enable_financial_data: true  # Financial metrics and statements
+  enable_insider_trades: true  # Insider trading data
+  enable_price_data: true     # Stock price and volume data
+  
+  # News data source selection
+  news_source: "yfinance"     # Options: "financial_datasets", "yfinance", "alpha_vantage", "mock"
+  
+  # Mock data settings (for testing without API calls)
+  use_mock_data: false        # Use simulated data instead of real APIs
+  mock_data_seed: 42          # Random seed for consistent mock data
+
+# Output Configuration
+output:
+  # Save results to file
+  save_results: true
+  
+  # Output directory
+  output_dir: "results"
+  
+  # File format: json, csv, both
+  format: "both"
+  
+  # Include detailed analysis
+  include_analysis: true
+
+# Logging Configuration
+logging:
+  # Enable different log outputs
+  enable_console: true        # Show logs in console
+  enable_file: true          # Save logs to files
+  enable_json: true          # Save structured JSONL logs
+  
+  # Console output format: "human" (with emojis) or "json"
+  console_format: "human"
+  
+  # Console log level: DEBUG, INFO, WARNING, ERROR
+  console_level: "DEBUG"
+  
+  # Log directory
+  log_dir: "logs"
+  
+  # Session management
+  auto_session_id: true      # Auto-generate session IDs
+  session_id: ""             # Manual session ID (leave empty for auto)
+  
+  # Log viewing tools (use these commands to view logs)
+  # python view_logs.py                    - Interactive log viewer menu
+  # python tools/pretty_logs.py --find    - Beautiful terminal view
+  # python tools/log_viewer.html          - HTML interactive viewer

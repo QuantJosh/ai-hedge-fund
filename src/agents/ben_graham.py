@@ -9,6 +9,7 @@ from src.utils.progress import progress
 from src.utils.llm import call_llm
 import math
 from src.utils.api_key import get_api_key_from_state
+from src.utils.llm_logger import log_agent_execution, log_data_operation
 
 
 class BenGrahamSignal(BaseModel):
@@ -17,6 +18,7 @@ class BenGrahamSignal(BaseModel):
     reasoning: str
 
 
+@log_agent_execution("Ben_Graham")
 def ben_graham_agent(state: AgentState, agent_id: str = "ben_graham_agent"):
     """
     Analyzes stocks using Benjamin Graham's classic value-investing principles:

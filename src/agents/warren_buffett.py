@@ -4,7 +4,12 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 import json
 from typing_extensions import Literal
-from src.tools.api import get_financial_metrics, get_market_cap, search_line_items
+from src.tools.api import (
+    get_financial_metrics_with_config, 
+    get_market_cap, 
+    search_line_items_with_config
+)
+from src.utils.data_config import get_data_config
 from src.utils.llm import call_llm
 from src.utils.progress import progress
 from src.utils.api_key import get_api_key_from_state
@@ -21,6 +26,10 @@ def warren_buffett_agent(state: AgentState, agent_id: str = "warren_buffett_agen
     end_date = data["end_date"]
     tickers = data["tickers"]
     api_key = get_api_key_from_state(state, "FINANCIAL_DATASETS_API_KEY")
+    
+    # Get data source configuration
+    config = state.get("metadata", {}).get("config", {})
+    data_config = get_data_config(config)
     # Collect all analysis for LLM reasoning
     analysis_data = {}
     buffett_analysis = {}
@@ -28,10 +37,12 @@ def warren_buffett_agent(state: AgentState, agent_id: str = "warren_buffett_agen
     for ticker in tickers:
         progress.update_status(agent_id, ticker, "Fetching financial metrics")
         # Fetch required data - request more periods for better trend analysis
-        metrics = get_financial_metrics(ticker, end_date, period="ttm", limit=10, api_key=api_key)
+        metrics = get_financial_metrics_with_config(
+            ticker, end_date, data_config, period="ttm", limit=10, api_key=api_key
+        )
 
         progress.update_status(agent_id, ticker, "Gathering financial line items")
-        financial_line_items = search_line_items(
+        financial_line_items = search_line_items_with_config(
             ticker,
             [
                 "capital_expenditure",
@@ -48,6 +59,7 @@ def warren_buffett_agent(state: AgentState, agent_id: str = "warren_buffett_agen
                 "free_cash_flow",
             ],
             end_date,
+            data_config,
             period="ttm",
             limit=10,
             api_key=api_key,
