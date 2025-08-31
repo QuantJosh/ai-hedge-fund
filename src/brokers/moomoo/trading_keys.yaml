@@ -1,0 +1,16 @@
+# Moomoo Trading Configuration
+# This file contains your Moomoo trading settings
+
+moomoo:
+  # Connection settings
+  host: "127.0.0.1"          # Moomoo OpenD host address
+  port: 11111                # Moomoo OpenD port
+  
+  # Trading settings
+  trade_password: "123456"   # Paper trading password (default)
+  market: "US"               # Trading market: US, HK, CN
+  paper_trading: true        # Use paper trading account
+  
+  # Connection settings
+  timeout: 30                # Connection timeout in seconds
+  retry_count: 3             # Number of retry attempts

@@ -1,0 +1,3 @@
+provider: generic
+url: 'https://static.moomoo.com/upload/'
+updaterCacheDirName: moomoo_opend-updater

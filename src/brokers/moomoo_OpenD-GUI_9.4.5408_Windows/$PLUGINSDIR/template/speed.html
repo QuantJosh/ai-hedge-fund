@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style type="text/css">
+        body {
+            font-size: 12px;
+            font-family: Microsoft YaHei;
+        }
+
+        table,
+        th,
+        td {
+            font-size: 12px;
+            border-collapse: collapse;
+            border: 1px solid #98bf21;
+            padding: 3px 7px 2px 7px;
+            margin-left: 20px;
+        }
+
+        th {
+            font-size: 13px;
+            text-align: left;
+            padding-top: 5px;
+            padding-bottom: 4px;
+            background-color: #0099CC;
+            color: #ffffff;
+        }
+
+        .title {
+            color: #006485;
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+
+        .sub-title {
+            color: #1f2426;
+            font-size: 13px;
+            margin-bottom: 10px;
+            margin-left: 20px;
+            display: list-item;
+            list-style-type: disc;
+            font-weight: bold;
+        }
+
+        .item {
+            color: #006485;
+            font-size: 11px;
+            margin-bottom: 10px;
+            margin-left: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div v-for="item in speedTableDatas">
+            <div class='item'>{{item.describe}}</div>
+            <table border="1" class="dataframe">
+                <thead>
+                    <tr style="text-align: right;">
+                        <th>Range</th>
+                        <th>Packages</th>
+                        <th>Percentage</th>
+                        <th>Cumulative Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="subitem in item.list">
+                        <td>{{subitem.begin_str}}ms - {{subitem.end_str}}ms</td>
+                        <td>{{subitem.proportion_str}}%</td>
+                        <td>{{String(subitem.count)}}</td>
+                        <td>{{subitem.cumulative_ratio_str}}%</td>
+                    </tr>
+                </tbody>
+            </table><br>
+        </div>
+    </div>
+</body>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+    Vue.createApp({
+        data() {
+            return {
+                speedTableDatas:[emptySpeed]
+            }
+        }
+    }).mount('#app')
+</script>
+
+</html>
