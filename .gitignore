@@ -55,6 +55,12 @@ node_modules
 # Outputs
 outputs/
 
+# AI Hedge Fund specific
+logs/
+results/
+simulation_execution_*.json
+test_execution_log.json
+
 # Database files (users will have their own local databases)
 *.db
 *.db-journal

@@ -8,6 +8,7 @@ import yaml
 import sys
 import os
 import json
+import signal
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
@@ -382,8 +383,18 @@ def save_results_with_moomoo(results, config):
         print(f"[SUCCESS] Results saved to: {json_file}")
 
 
+def signal_handler(signum, frame):
+    """Handle Ctrl+C gracefully"""
+    print("\n⚠️ Execution interrupted by user (Ctrl+C)")
+    print("🔌 Cleaning up connections...")
+    print("👋 Goodbye!")
+    sys.exit(1)
+
 def main():
     """Main function"""
+    # Set up signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+    
     import argparse
     
     parser = argparse.ArgumentParser(description="AI Hedge Fund with Moomoo Integration")
@@ -436,4 +447,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        signal_handler(None, None)
