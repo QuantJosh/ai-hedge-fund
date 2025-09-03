@@ -10,6 +10,7 @@ from .tabs_config import ConfigTab
 from .tabs_data import DataTab
 from .tabs_agents import AgentsTab
 from .tabs_trading import TradingTab
+from .tabs_market import MarketsTab
 
 
 def create_app() -> tk.Tk:
@@ -34,13 +35,15 @@ def create_app() -> tk.Tk:
     data_tab = DataTab(nb, app_state=state)
     agents_tab = AgentsTab(nb, app_state=state)
     trading_tab = TradingTab(nb, app_state=state)
-    logs_tab = LogsTab(nb, log_queue=state.log_queue, poll_ms=state.config.get("refresh_intervals", {}).get("logs_ms", 300))
+    logs_tab = LogsTab(nb, log_queue=state.log_queue, poll_ms=state.config.get("refresh_intervals", {}).get("logs_ms", 300), app_state=state)
+    markets_tab = MarketsTab(nb, app_state=state)
 
     nb.add(config_tab, text="配置")
     nb.add(data_tab, text="数据分析")
     nb.add(agents_tab, text="AI分析师")
     nb.add(trading_tab, text="交易决策")
     nb.add(logs_tab, text="日志监控")
+    nb.add(markets_tab, text="Markets")
 
     # Status bar
     status = ttk.Label(root, text="就绪", anchor=tk.W)

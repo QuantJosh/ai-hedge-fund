@@ -229,6 +229,120 @@ def connect_moomoo(state: AppState, on_done: Optional[callable] = None) -> None:
     threading.Thread(target=worker, daemon=True).start()
 
 
+def ensure_moomoo_connected(state: AppState, timeout_sec: float = 12.0) -> bool:
+    """Ensure Moomoo is connected. Returns True if connected or becomes connected within timeout.
+
+    Safe wrapper used before starting processing.
+    """
+    logger = logging.getLogger(__name__)
+    if state.moomoo_connected:
+        return True
+    try:
+        _evt = threading.Event()
+        connect_moomoo(state, on_done=_evt.set)
+        _evt.wait(timeout=timeout_sec)
+        if state.moomoo_connected:
+            logger.info("[GUI] 已连接 Moomoo (ensure)")
+            return True
+        logger.warning("[GUI] ensure_moomoo_connected 等待超时")
+        return False
+    except Exception as e:
+        logger.exception(f"[GUI] ensure_moomoo_connected 异常: {e}")
+        return False
+
+
+def get_candles(state: AppState, ticker: str, bars: int = 120):
+    """Fetch recent candles for ticker for charting. Returns list of dicts with time, open, high, low, close.
+
+    Placeholder implementation: attempts via Moomoo when available; else returns [].
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        if state.runner and state.moomoo_connected and state.runner.moomoo_integration and \
+           state.runner.moomoo_integration.client and state.runner.moomoo_integration.client.quote_ctx:
+            # Try current kline first (recent bars). API may vary; handle exceptions gracefully.
+            mm = state.runner.moomoo_integration.client
+            code = f"{mm.market}.{ticker}"
+            try:
+                # Attempt get_cur_kline if available
+                ret, data = mm.quote_ctx.get_cur_kline(code,  num=bars)
+            except Exception:
+                # Fallback: try get_history_kline style API if present
+                try:
+                    ret, data = mm.quote_ctx.get_history_kline(code)
+                except Exception as _:
+                    ret, data = None, None
+            out = []
+            if ret == 0 and data is not None and not getattr(data, 'empty', True):
+                for _, row in data.iterrows():
+                    ts = row.get('time_key') or row.get('time') or row.get('timestamp')
+                    out.append({
+                        'time': str(ts),
+                        'open': float(row.get('open', 0.0)),
+                        'high': float(row.get('high', 0.0)),
+                        'low': float(row.get('low', 0.0)),
+                        'close': float(row.get('close', 0.0)),
+                    })
+            # If we got data from Moomoo, return it; otherwise continue to fallback
+            if out:
+                return out
+        # Fallback: use yfinance to fetch recent OHLC
+        try:
+            import yfinance as yf
+            import pandas as pd
+            def _yf_symbol(sym: str) -> str:
+                # Map common cases for Yahoo symbols (e.g., BRK.B -> BRK-B)
+                return sym.replace('.', '-')
+            def _to_float_scalar(v):
+                # Robustly convert pandas/numpy scalars or single-element Series to float
+                try:
+                    if hasattr(v, 'item'):
+                        return float(v.item())
+                    if hasattr(v, 'iloc'):
+                        return float(v.iloc[0])
+                    return float(v)
+                except Exception:
+                    try:
+                        return float(str(v))
+                    except Exception:
+                        return 0.0
+            # Heuristic: if symbol lacks suffix, try as-is; users can provide proper tickers
+            period = '5d' if bars <= 390 else '1mo'
+            interval = '5m' if bars <= 390 else '1d'
+            df = yf.download(_yf_symbol(ticker), period=period, interval=interval, progress=False, auto_adjust=False)
+            out = []
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Take the last N rows
+                df = df.tail(bars)
+                for idx, row in df.iterrows():
+                    out.append({
+                        'time': str(idx.to_pydatetime()),
+                        'open': _to_float_scalar(row.get('Open', 0.0)),
+                        'high': _to_float_scalar(row.get('High', 0.0)),
+                        'low': _to_float_scalar(row.get('Low', 0.0)),
+                        'close': _to_float_scalar(row.get('Close', 0.0)),
+                    })
+            if not out:
+                logger.info("[GUI] yfinance 返回空数据: %s", ticker)
+            return out
+        except Exception as yf_err:
+            logger.info("[GUI] yfinance 获取K线失败: %s", yf_err)
+            return []
+    except Exception as e:
+        logger.exception(f"[GUI] 获取K线失败: {e}")
+        return []
+
+
+def get_orders_for_ticker(state: AppState, ticker: str):
+    """Filter cached orders by ticker (expects AppState.orders already synced)."""
+    try:
+        orders = state.orders or []
+        t = ticker.upper()
+        return [o for o in orders if (o.get('ticker') or (o.get('code') or '').split('.')[-1]).upper() == t]
+    except Exception:
+        return []
+
+
 def disconnect_moomoo(state: AppState) -> None:
     logger = logging.getLogger(__name__)
     try:

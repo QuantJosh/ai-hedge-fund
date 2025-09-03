@@ -4,7 +4,7 @@ from tkinter import filedialog, ttk, messagebox
 from typing import List
 
 from .config_manager import load_config, save_config
-from .services import start_background_analysis, connect_moomoo, sync_portfolio, sync_orders
+from .services import start_background_analysis, connect_moomoo, sync_portfolio, sync_orders, ensure_moomoo_connected
 
 
 class ConfigTab(ttk.Frame):
@@ -150,6 +150,18 @@ class ConfigTab(ttk.Frame):
         logger.info(
             f"开始处理：标的 {cfg.get('tickers')}，分析师 {cfg.get('analysts')}，自动执行={cfg.get('auto_execute')}"
         )
+
+        # Ensure Moomoo connected and account synced before starting
+        if not ensure_moomoo_connected(self.app_state):
+            try:
+                messagebox.showwarning("提示", "未连接 Moomoo。已尝试连接但超时，请先点击‘连接/刷新账户’再重试。")
+            finally:
+                return
+        # Optional: quick portfolio sync to reflect latest status
+        try:
+            sync_portfolio(self.app_state)
+        except Exception:
+            pass
 
         # Disable button during processing
         self.start_btn.state(["disabled"])  # type: ignore
