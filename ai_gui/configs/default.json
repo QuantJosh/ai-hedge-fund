@@ -1,0 +1,51 @@
+{
+  "tickers": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "GOOGL",
+    "META",
+    "TSLA",
+    "AVGO",
+    "BRK.B",
+    "UNH",
+    "JPM",
+    "JNJ",
+    "XOM",
+    "V",
+    "PG",
+    "MA",
+    "COST",
+    "HD",
+    "BAC",
+    "AMD"
+  ],
+  "analysts": [
+    "aswath_damodaran",
+    "ben_graham",
+    "bill_ackman",
+    "cathie_wood",
+    "charlie_munger",
+    "michael_burry",
+    "mohnish_pabrai",
+    "peter_lynch",
+    "phil_fisher",
+    "rakesh_jhunjhunwala",
+    "stanley_druckenmiller",
+    "warren_buffett",
+    "technical_analyst",
+    "fundamentals_analyst",
+    "sentiment_analyst",
+    "valuation_analyst"
+  ],
+  "start_date": null,
+  "end_date": null,
+  "paper_trading_only": true,
+  "auto_execute": false,
+  "show_reasoning": true,
+  "refresh_intervals": {
+    "account_seconds": 60,
+    "logs_ms": 300
+  }
+}

@@ -186,15 +186,23 @@ class MoomooClient:
                 print(f"Failed to get account info: {data}")
                 return {}
             
+            def _to_float(v) -> float:
+                try:
+                    if v in (None, "", "N/A", "NA", "nan"):
+                        return 0.0
+                    return float(v)
+                except Exception:
+                    return 0.0
+
             if not data.empty:
                 account_info = data.iloc[0]
                 return {
-                    "total_assets": float(account_info.get('total_assets', 0)),
-                    "cash": float(account_info.get('cash', 0)),
-                    "market_value": float(account_info.get('market_val', 0)),
-                    "unrealized_pnl": float(account_info.get('unrealized_pl', 0)),
-                    "realized_pnl": float(account_info.get('realized_pl', 0)),
-                    "currency": account_info.get('currency', 'USD')
+                    "total_assets": _to_float(account_info.get('total_assets', 0)),
+                    "cash": _to_float(account_info.get('cash', 0)),
+                    "market_value": _to_float(account_info.get('market_val', 0)),
+                    "unrealized_pnl": _to_float(account_info.get('unrealized_pl', 0)),
+                    "realized_pnl": _to_float(account_info.get('realized_pl', 0)),
+                    "currency": account_info.get('currency', 'USD') or 'USD'
                 }
             
             return {}
@@ -214,17 +222,34 @@ class MoomooClient:
                 print(f"Failed to get positions: {data}")
                 return {}
             
+            def _to_float(v) -> float:
+                try:
+                    if v in (None, "", "N/A", "NA", "nan"):
+                        return 0.0
+                    return float(v)
+                except Exception:
+                    return 0.0
+
+            def _to_int(v) -> int:
+                try:
+                    if v in (None, "", "N/A", "NA", "nan"):
+                        return 0
+                    # Some APIs return floats for qty; round sensibly
+                    return int(float(v))
+                except Exception:
+                    return 0
+
             positions = {}
             if not data.empty:
                 for _, row in data.iterrows():
                     ticker = row['code'].split('.')[-1]  # Extract ticker from US.AAPL
                     positions[ticker] = {
-                        "quantity": int(row.get('qty', 0)),
-                        "market_value": float(row.get('market_val', 0)),
-                        "cost_price": float(row.get('cost_price', 0)),
-                        "current_price": float(row.get('nominal_price', 0)),
-                        "unrealized_pnl": float(row.get('unrealized_pl', 0)),
-                        "unrealized_pnl_ratio": float(row.get('unrealized_pl_ratio', 0))
+                        "quantity": _to_int(row.get('qty', 0)),
+                        "market_value": _to_float(row.get('market_val', 0)),
+                        "cost_price": _to_float(row.get('cost_price', 0)),
+                        "current_price": _to_float(row.get('nominal_price', 0)),
+                        "unrealized_pnl": _to_float(row.get('unrealized_pl', 0)),
+                        "unrealized_pnl_ratio": _to_float(row.get('unrealized_pl_ratio', 0))
                     }
             
             return positions
@@ -297,6 +322,95 @@ class MoomooClient:
                 success=False,
                 message=f"Error placing order: {e}"
             )
+
+    def get_orders(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict]:
+        """Retrieve orders. If start/end provided, fetch history; otherwise fetch today's orders.
+
+        Dates should be in 'YYYY-MM-DD' format per moomoo OpenD.
+        """
+        try:
+            if not self.connected:
+                return []
+
+            def _to_float(v) -> float:
+                try:
+                    if v in (None, "", "N/A", "NA", "nan"):
+                        return 0.0
+                    return float(v)
+                except Exception:
+                    return 0.0
+
+            def _to_int(v) -> int:
+                try:
+                    if v in (None, "", "N/A", "NA", "nan"):
+                        return 0
+                    return int(float(v))
+                except Exception:
+                    return 0
+
+            if start_date and end_date:
+                # History orders
+                ret, data = self.trade_ctx.history_order_list_query(
+                    trd_env=self.env_type, start=start_date, end=end_date
+                )
+            else:
+                # Today's orders
+                ret, data = self.trade_ctx.order_list_query(trd_env=self.env_type)
+
+            if ret != RET_OK:
+                print(f"Failed to get orders: {data}")
+                return []
+
+            orders: List[Dict] = []
+            if data is not None and not data.empty:
+                for _, row in data.iterrows():
+                    orders.append({
+                        "order_id": str(row.get("order_id", "")),
+                        "code": row.get("code"),
+                        "ticker": (row.get("code") or "").split(".")[-1] if row.get("code") else None,
+                        "trd_side": row.get("trd_side") or row.get("trdSide") or "",
+                        "order_type": row.get("order_type") or row.get("orderType") or "",
+                        "order_status": row.get("order_status") or row.get("orderStatus") or "",
+                        "qty": _to_int(row.get("qty", 0)),
+                        "dealt_qty": _to_int(row.get("dealt_qty", 0)),
+                        "dealt_avg_price": _to_float(row.get("dealt_avg_price", 0)),
+                        "price": _to_float(row.get("price", 0)),
+                        "create_time": row.get("create_time") or row.get("createTime"),
+                        "updated_time": row.get("updated_time") or row.get("updatedTime"),
+                    })
+
+            # Fallback: if requesting today's orders and none returned, try last 30 days
+            if not orders and not (start_date and end_date):
+                try:
+                    from datetime import datetime, timedelta
+                    end = datetime.now().date()
+                    start = end - timedelta(days=30)
+                    ret2, data2 = self.trade_ctx.history_order_list_query(
+                        trd_env=self.env_type, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d")
+                    )
+                    if ret2 == RET_OK and data2 is not None and not data2.empty:
+                        for _, row in data2.iterrows():
+                            orders.append({
+                                "order_id": str(row.get("order_id", "")),
+                                "code": row.get("code"),
+                                "ticker": (row.get("code") or "").split(".")[-1] if row.get("code") else None,
+                                "trd_side": row.get("trd_side") or row.get("trdSide") or "",
+                                "order_type": row.get("order_type") or row.get("orderType") or "",
+                                "order_status": row.get("order_status") or row.get("orderStatus") or "",
+                                "qty": _to_int(row.get("qty", 0)),
+                                "dealt_qty": _to_int(row.get("dealt_qty", 0)),
+                                "dealt_avg_price": _to_float(row.get("dealt_avg_price", 0)),
+                                "price": _to_float(row.get("price", 0)),
+                                "create_time": row.get("create_time") or row.get("createTime"),
+                                "updated_time": row.get("updated_time") or row.get("updatedTime"),
+                            })
+                except Exception:
+                    pass
+
+            return orders
+        except Exception as e:
+            print(f"Error getting orders: {e}")
+            return []
     
     def execute_trading_decision(self, decision: TradingDecision) -> OrderResult:
         """Execute a trading decision from Portfolio Manager"""
@@ -458,6 +572,10 @@ class MoomooIntegration:
     def get_portfolio_sync(self) -> Dict:
         """Get synchronized portfolio data from Moomoo"""
         return self.client.sync_portfolio_positions()
+    
+    def get_orders(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict]:
+        """Get orders (today if no date range; else history)."""
+        return self.client.get_orders(start_date=start_date, end_date=end_date)
     
     def save_execution_log(self, filename: str = None):
         """Save execution log to file"""
