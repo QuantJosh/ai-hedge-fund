@@ -42,6 +42,8 @@ class AgentsTab(ttk.Frame):
             if not isinstance(ticker_map, dict):
                 continue
             for tkr, sig in ticker_map.items():
-                action = (sig or {}).get("action", "-")
+                # Some agents output key 'signal' instead of 'action'
+                sdict = sig or {}
+                action = sdict.get("action") or sdict.get("signal", "-")
                 conf = (sig or {}).get("confidence", 0)
                 self.tree.insert("", tk.END, values=(analyst, tkr, action, f"{conf:.1f}%"))

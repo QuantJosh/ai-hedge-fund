@@ -3,23 +3,8 @@
     "AAPL",
     "MSFT",
     "NVDA",
-    "AMZN",
     "GOOGL",
-    "META",
-    "TSLA",
-    "AVGO",
-    "BRK.B",
-    "UNH",
-    "JPM",
-    "JNJ",
-    "XOM",
-    "V",
-    "PG",
-    "MA",
-    "COST",
-    "HD",
-    "BAC",
-    "AMD"
+    "TSLA"
   ],
   "analysts": [
     "aswath_damodaran",
@@ -42,10 +27,14 @@
   "start_date": null,
   "end_date": null,
   "paper_trading_only": true,
-  "auto_execute": false,
+  "auto_execute": true,
   "show_reasoning": true,
   "refresh_intervals": {
     "account_seconds": 60,
     "logs_ms": 300
-  }
+  },
+  "model_provider": "OpenRouter",
+  "model_name": "z-ai/glm-4.5-air:free",
+  "llm_max_concurrency": "1",
+  "llm_request_timeout": "30"
 }

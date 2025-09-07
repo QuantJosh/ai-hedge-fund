@@ -492,6 +492,101 @@ class AIHedgeFundLogger:
         # Generate session summary
         self.get_session_summary()
 
+    def export_agent_transcripts(self) -> Dict[str, Any]:
+        """Export per-agent conversation transcripts from structured_log.jsonl.
+
+        Output directory: <session_dir>/transcripts/
+        For each agent, create a JSON file containing all events (start/end, model requests/responses, decisions, errors)
+        in chronological order, preserving full prompt and full response texts to ensure no information loss.
+        Also writes an "all_agents.json" index mapping agent -> file path and basic stats.
+        """
+        index: Dict[str, Any] = {"session_id": self.session_id, "agents": {}}
+        transcripts_dir = self.session_dir / "transcripts"
+        transcripts_dir.mkdir(exist_ok=True)
+
+        # Read structured log
+        records: List[Dict[str, Any]] = []
+        try:
+            with open(self.json_log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        records.append(json.loads(line))
+                    except Exception:
+                        continue
+        except Exception as e:
+            self.log_system(f"Failed to read structured logs for transcripts: {e}")
+            return index
+
+        # Group by agent
+        by_agent: Dict[str, List[Dict[str, Any]]] = {}
+        for r in records:
+            agent = r.get("agent") or "UNKNOWN_AGENT"
+            by_agent.setdefault(agent, []).append(r)
+
+        # Sort each agent's records by timestamp
+        from datetime import datetime as _dt
+        def _parse_ts(s: str) -> float:
+            try:
+                return _dt.fromisoformat(s).timestamp()
+            except Exception:
+                return 0.0
+
+        export_count = 0
+        for agent, items in by_agent.items():
+            items_sorted = sorted(items, key=lambda x: _parse_ts(x.get("timestamp", "")))
+
+            # Build transcript preserving full data
+            transcript = {
+                "agent": agent,
+                "session_id": self.session_id,
+                "events": []
+            }
+
+            for ev in items_sorted:
+                ev_type = ev.get("type")
+                data = ev.get("data") or {}
+                model = ev.get("model") or {}
+                # Pull full prompt/response fields if available
+                full_prompt = data.get("full_prompt") if isinstance(data, dict) else None
+                full_response = data.get("full_response") if isinstance(data, dict) else None
+                transcript["events"].append({
+                    "timestamp": ev.get("timestamp"),
+                    "type": ev_type,
+                    "ticker": ev.get("ticker"),
+                    "message": ev.get("message"),
+                    "model": model,
+                    "data": data,  # keep entire data object to avoid loss
+                    "full_prompt": full_prompt,
+                    "full_response": full_response,
+                })
+
+            # Write file per agent
+            safe_agent = agent.replace('/', '_').replace('\\', '_')
+            out_path = transcripts_dir / f"{safe_agent}.json"
+            try:
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    json.dump(transcript, f, ensure_ascii=False, indent=2)
+                index["agents"][agent] = {
+                    "file": str(out_path),
+                    "events": len(transcript["events"]),
+                }
+                export_count += 1
+            except Exception as e:
+                self.log_system(f"Failed to write transcript for {agent}: {e}")
+
+        # Write index
+        try:
+            with open(transcripts_dir / "all_agents.json", 'w', encoding='utf-8') as f:
+                json.dump(index, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.log_system(f"Failed to write transcripts index: {e}")
+
+        self.log_system(f"Exported agent transcripts: {export_count} files")
+        return index
+
 
 # Global logger instance
 _global_logger: Optional[AIHedgeFundLogger] = None

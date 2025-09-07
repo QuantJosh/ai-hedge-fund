@@ -1,10 +1,24 @@
 import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-from typing import List
+from typing import List, Dict
+import os
+import threading
+try:
+    import requests
+    _HAS_REQUESTS = True
+except Exception:
+    _HAS_REQUESTS = False
 
 from .config_manager import load_config, save_config
-from .services import start_background_analysis, connect_moomoo, sync_portfolio, sync_orders, ensure_moomoo_connected
+from .services import (
+    start_background_analysis,
+    start_auto_trading,
+    connect_moomoo,
+    sync_portfolio,
+    sync_orders,
+    ensure_moomoo_connected,
+)
 
 
 class ConfigTab(ttk.Frame):
@@ -12,6 +26,7 @@ class ConfigTab(ttk.Frame):
         super().__init__(master)
         self.app_state = app_state
         self.logger = logging.getLogger(__name__)
+        self._models_by_provider: Dict[str, List[str]] = {}
 
         # Left: basic config
         left = ttk.LabelFrame(self, text="基础配置")
@@ -38,6 +53,35 @@ class ConfigTab(ttk.Frame):
         ttk.Checkbutton(toggles, text="纸质交易(强制开启)", variable=self.paper_var, state=tk.DISABLED).pack(anchor=tk.W)
         ttk.Checkbutton(toggles, text="自动执行交易", variable=self.auto_exec_var).pack(anchor=tk.W)
         ttk.Checkbutton(toggles, text="显示推理", variable=self.reason_var).pack(anchor=tk.W)
+
+        # LLM selection
+        llm_box = ttk.LabelFrame(left, text="LLM 设置")
+        llm_box.pack(fill=tk.X, padx=6, pady=(4, 8))
+        row1 = ttk.Frame(llm_box); row1.pack(fill=tk.X, padx=4, pady=(6, 4))
+        ttk.Label(row1, text="Provider").pack(side=tk.LEFT)
+        self.provider_var = tk.StringVar(value=self.app_state.config.get("model_provider", "OpenRouter"))
+        self.provider_combo = ttk.Combobox(row1, textvariable=self.provider_var, width=22, state="readonly")
+        self.provider_combo.pack(side=tk.LEFT, padx=(6, 0))
+        self.provider_combo.bind("<<ComboboxSelected>>", self._on_select_provider)
+
+        row2 = ttk.Frame(llm_box); row2.pack(fill=tk.X, padx=4, pady=(0, 6))
+        ttk.Label(row2, text="Model").pack(side=tk.LEFT)
+        self.model_var = tk.StringVar(value=self.app_state.config.get("model_name", "openai/gpt-4o-mini"))
+        self.model_combo = ttk.Combobox(row2, textvariable=self.model_var, width=30, state="readonly")
+        self.model_combo.pack(side=tk.LEFT, padx=(20, 0))
+
+        # Runtime controls
+        row3 = ttk.Frame(llm_box); row3.pack(fill=tk.X, padx=4, pady=(0, 4))
+        ttk.Label(row3, text="最大并发 (LLM_MAX_CONCURRENCY)").pack(side=tk.LEFT)
+        self.llm_cc_var = tk.StringVar(value=self.app_state.config.get("llm_max_concurrency", "3"))
+        ttk.Entry(row3, textvariable=self.llm_cc_var, width=8).pack(side=tk.LEFT, padx=(6, 12))
+        ttk.Label(row3, text="请求超时秒数 (LLM_REQUEST_TIMEOUT)").pack(side=tk.LEFT)
+        self.llm_to_var = tk.StringVar(value=self.app_state.config.get("llm_request_timeout", "60"))
+        ttk.Entry(row3, textvariable=self.llm_to_var, width=8).pack(side=tk.LEFT, padx=(6, 0))
+
+        row4 = ttk.Frame(llm_box); row4.pack(fill=tk.X, padx=4, pady=(0, 8))
+        ttk.Button(row4, text="从 OpenRouter 获取模型", command=lambda: self._fetch_models_async()).pack(side=tk.LEFT)
+        ttk.Button(row4, text="保存 LLM 设置", command=self._save_llm_selection).pack(side=tk.LEFT, padx=(8, 0))
 
         # Right: account panel placeholder (Phase 2 will populate)
         right = ttk.LabelFrame(self, text="Moomoo账户状态")
@@ -108,6 +152,8 @@ class ConfigTab(ttk.Frame):
         self.orders_tree.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         self._load_into_ui(self.app_state.config)
+        # async load models to populate dropdowns
+        self.after(200, lambda: self._fetch_models_async(silent=True))
         self.after(800, self._poll_status)
 
     def _load_into_ui(self, cfg):
@@ -116,6 +162,14 @@ class ConfigTab(ttk.Frame):
         self.paper_var.set(bool(cfg.get("paper_trading_only", True)))
         self.auto_exec_var.set(bool(cfg.get("auto_execute", False)))
         self.reason_var.set(bool(cfg.get("show_reasoning", True)))
+        # LLM fields
+        self.provider_var.set(cfg.get("model_provider", "OpenRouter"))
+        self.model_var.set(cfg.get("model_name", "openai/gpt-4o-mini"))
+        self.llm_cc_var.set(str(cfg.get("llm_max_concurrency", "3")))
+        self.llm_to_var.set(str(cfg.get("llm_request_timeout", "60")))
+        # If models list already fetched, repopulate
+        if self._models_by_provider:
+            self._populate_provider_and_models()
 
     def _collect_from_ui(self):
         cfg = self.app_state.config.copy()
@@ -124,6 +178,10 @@ class ConfigTab(ttk.Frame):
         cfg["paper_trading_only"] = True
         cfg["auto_execute"] = bool(self.auto_exec_var.get())
         cfg["show_reasoning"] = bool(self.reason_var.get())
+        cfg["model_provider"] = self.provider_var.get() or cfg.get("model_provider", "OpenRouter")
+        cfg["model_name"] = self.model_var.get() or cfg.get("model_name", "openai/gpt-4o-mini")
+        cfg["llm_max_concurrency"] = (self.llm_cc_var.get() or "").strip() or cfg.get("llm_max_concurrency", "3")
+        cfg["llm_request_timeout"] = (self.llm_to_var.get() or "").strip() or cfg.get("llm_request_timeout", "60")
         self.app_state.config = cfg
         return cfg
 
@@ -178,8 +236,13 @@ class ConfigTab(ttk.Frame):
             except Exception:
                 pass
 
-        # Start background analysis
-        start_background_analysis(self.app_state, on_done=on_done)
+        # Start flow
+        if cfg.get("auto_execute"):
+            # End-to-end auto trading: connect -> sync -> analysis -> execute -> analyze -> save
+            start_auto_trading(self.app_state, on_done=on_done)
+        else:
+            # Analysis only
+            start_background_analysis(self.app_state, on_done=on_done)
 
     # Placeholders for Phase 2
     def _refresh_account(self):
@@ -251,3 +314,71 @@ class ConfigTab(ttk.Frame):
                 tm = od.get("updated_time") or od.get("create_time") or ""
                 oid = od.get("order_id", "")
                 self.orders_tree.insert("", tk.END, values=(tm, tkr, side, status, qty, dqty, f"${price:,.2f}", f"${avg:,.2f}", oid))
+
+    # ===== LLM helpers =====
+    def _fetch_models_async(self, silent: bool = False):
+        def worker():
+            self._fetch_openrouter_models(silent=silent)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _fetch_openrouter_models(self, silent: bool = False):
+        if not _HAS_REQUESTS:
+            if not silent:
+                messagebox.showwarning("提示", "未安装 requests，无法从 OpenRouter 获取模型。请 pip install requests")
+            return
+        try:
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+            resp = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            items = data.get("data", []) if isinstance(data, dict) else []
+            models_by_provider: Dict[str, List[str]] = {}
+            for item in items:
+                model_id = item.get("id") or item.get("name")
+                prov = ((item.get("provider") or {}).get("name") or "OpenRouter").strip()
+                if not model_id:
+                    continue
+                models_by_provider.setdefault(prov, []).append(model_id)
+            # sort
+            for k in models_by_provider:
+                models_by_provider[k] = sorted(set(models_by_provider[k]))
+            self._models_by_provider = dict(sorted(models_by_provider.items(), key=lambda kv: kv[0].lower()))
+            # populate UI (on main thread)
+            self.after(0, self._populate_provider_and_models)
+            if not silent:
+                self.logger.info("已从 OpenRouter 获取模型列表")
+        except Exception as e:
+            if not silent:
+                self.logger.exception("获取模型失败: %s", e)
+
+    def _populate_provider_and_models(self):
+        providers = list(self._models_by_provider.keys()) or [self.provider_var.get() or "OpenRouter"]
+        self.provider_combo["values"] = providers
+        # keep current provider if possible
+        cur_provider = self.provider_var.get()
+        if cur_provider not in providers and providers:
+            cur_provider = providers[0]
+            self.provider_var.set(cur_provider)
+        models = self._models_by_provider.get(cur_provider, [])
+        self.model_combo["values"] = models
+        cur_model = self.model_var.get()
+        if cur_model not in models:
+            if "openai/gpt-4o-mini" in models:
+                self.model_var.set("openai/gpt-4o-mini")
+            elif models:
+                self.model_var.set(models[0])
+
+    def _on_select_provider(self, _evt=None):
+        self._populate_provider_and_models()
+
+    def _save_llm_selection(self):
+        cfg = self._collect_from_ui()
+        save_config(cfg)
+        messagebox.showinfo(
+            "已保存",
+            (
+                f"已保存 LLM 设置：{cfg.get('model_provider')} / {cfg.get('model_name')}\n"
+                f"最大并发={cfg.get('llm_max_concurrency')} 超时秒数={cfg.get('llm_request_timeout')}"
+            ),
+        )

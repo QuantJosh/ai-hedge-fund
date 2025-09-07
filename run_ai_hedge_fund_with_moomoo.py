@@ -43,7 +43,9 @@ class AIHedgeFundMoomooRunner:
                  selected_analysts: List[str] = None,
                  paper_trading_only: bool = True,
                  auto_execute: bool = False,
-                 show_reasoning: bool = True):
+                 show_reasoning: bool = True,
+                 model_name: str | None = None,
+                 model_provider: str | None = None):
         
         # Set up signal handler for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -57,6 +59,9 @@ class AIHedgeFundMoomooRunner:
         self.paper_trading_only = paper_trading_only
         self.auto_execute = auto_execute
         self.show_reasoning = show_reasoning
+        # LLM selection (defaults to OpenRouter gpt-4o-mini if not provided)
+        self.model_name = model_name or "openai/gpt-4o-mini"
+        self.model_provider = model_provider or "OpenRouter"
         
         # Safety check
         if not paper_trading_only:
@@ -78,7 +83,9 @@ class AIHedgeFundMoomooRunner:
                 "selected_analysts": self.selected_analysts,
                 "paper_trading_only": self.paper_trading_only,
                 "auto_execute": self.auto_execute,
-                "show_reasoning": self.show_reasoning
+                "show_reasoning": self.show_reasoning,
+                "model_name": self.model_name,
+                "model_provider": self.model_provider,
             },
             "ai_analysis": {},
             "trading_decisions": {},
@@ -182,21 +189,16 @@ class AIHedgeFundMoomooRunner:
         self._check_shutdown()
         
         try:
-            # Create initial portfolio
+            # Build initial portfolio using synced data from Moomoo when available
+            before = self.results.get("portfolio_before", {}) or {}
+            initial_positions = self._translate_moomoo_positions(
+                before.get("positions", {}), self.tickers
+            )
             initial_portfolio = {
-                "cash": self.results["portfolio_before"].get("cash", 1000000),
-                "margin_requirement": 0.0,
-                "margin_used": 0.0,
-                "positions": {
-                    ticker: {
-                        "long": 0,
-                        "short": 0,
-                        "long_cost_basis": 0.0,
-                        "short_cost_basis": 0.0,
-                        "short_margin_used": 0.0,
-                    }
-                    for ticker in self.tickers
-                },
+                "cash": before.get("cash", 1000000),
+                "margin_requirement": before.get("margin_requirement", 0.0),
+                "margin_used": before.get("margin_used", 0.0),
+                "positions": initial_positions,
                 "realized_gains": {
                     ticker: {"long": 0.0, "short": 0.0}
                     for ticker in self.tickers
@@ -212,8 +214,8 @@ class AIHedgeFundMoomooRunner:
                 portfolio=initial_portfolio,
                 show_reasoning=self.show_reasoning,
                 selected_analysts=self.selected_analysts,
-                model_name="openai/gpt-4o-mini",
-                model_provider="OpenRouter"
+                model_name=self.model_name,
+                model_provider=self.model_provider
             )
             
             self.results["ai_analysis"] = {
@@ -227,6 +229,59 @@ class AIHedgeFundMoomooRunner:
         except Exception as e:
             print(f"❌ Error in AI analysis: {e}")
             return {}
+
+    def _translate_moomoo_positions(self, mm_positions: Dict, tickers: List[str]) -> Dict[str, Dict]:
+        """Translate Moomoo positions dict into PortfolioManager schema per ticker.
+        Expected Moomoo input shape per ticker (best-effort):
+          { ticker: { quantity, cost_price, ... } }
+        Output per ticker:
+          { 'long': int, 'short': int, 'long_cost_basis': float, 'short_cost_basis': float, 'short_margin_used': float }
+        Missing tickers will be filled with zero positions.
+        """
+        out: Dict[str, Dict] = {}
+        try:
+            for t in tickers:
+                p = mm_positions.get(t) or mm_positions.get(t.upper()) or mm_positions.get(t.lower()) or {}
+                qty = int(p.get("quantity", 0) or 0)
+                cost = float(p.get("cost_price", 0.0) or 0.0)
+                if qty >= 0:
+                    out[t] = {
+                        "long": qty,
+                        "short": 0,
+                        "long_cost_basis": cost,
+                        "short_cost_basis": 0.0,
+                        "short_margin_used": 0.0,
+                    }
+                else:
+                    # Negative quantity treated as short (if ever provided)
+                    out[t] = {
+                        "long": 0,
+                        "short": abs(qty),
+                        "long_cost_basis": 0.0,
+                        "short_cost_basis": cost,
+                        "short_margin_used": 0.0,
+                    }
+            # Ensure all tickers present
+            for t in tickers:
+                out.setdefault(t, {
+                    "long": 0,
+                    "short": 0,
+                    "long_cost_basis": 0.0,
+                    "short_cost_basis": 0.0,
+                    "short_margin_used": 0.0,
+                })
+        except Exception:
+            # Fallback: zero positions
+            out = {
+                t: {
+                    "long": 0,
+                    "short": 0,
+                    "long_cost_basis": 0.0,
+                    "short_cost_basis": 0.0,
+                    "short_margin_used": 0.0,
+                } for t in tickers
+            }
+        return out
     
     def convert_ai_decisions_to_moomoo_format(self, ai_decisions: Dict) -> Dict:
         """Convert AI hedge fund decisions to Moomoo trading format"""

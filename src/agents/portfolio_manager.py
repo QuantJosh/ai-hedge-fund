@@ -1,4 +1,5 @@
 import json
+import logging
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -88,6 +89,41 @@ def portfolio_management_agent(state: AgentState, agent_id: str = "portfolio_man
     # Print the decision if the flag is set
     if state["metadata"]["show_reasoning"]:
         show_agent_reasoning({ticker: decision.model_dump() for ticker, decision in result.decisions.items()}, "Portfolio Manager")
+
+    # --- Print final trading decisions and account snapshot for testing ---
+    try:
+        logger = logging.getLogger(__name__)
+        decisions_map = {ticker: decision.model_dump() for ticker, decision in result.decisions.items()}
+        print("\n================ Final Trading Decisions ================")
+        for tkr, d in decisions_map.items():
+            print(f"{tkr}: {d.get('action','hold').upper()} qty={d.get('quantity',0)} conf={d.get('confidence',0):.1f}%")
+            if d.get('reasoning'):
+                print(f"  Reason: {d['reasoning']}")
+
+        pf = state["data"].get("portfolio", {}) or {}
+        print("\n================ Account Snapshot ======================")
+        print(f"Cash: {pf.get('cash', 0):,.2f}")
+        print(f"Margin Requirement: {pf.get('margin_requirement', 0):.2f}")
+        print(f"Total Margin Used: {pf.get('margin_used', 0):.2f}")
+        positions = pf.get("positions", {}) or {}
+        if positions:
+            print("Positions:")
+            for tkr, pos in positions.items():
+                print(
+                    f"  {tkr}: long={pos.get('long',0)} @ {pos.get('long_cost_basis',0):.2f}, "
+                    f"short={pos.get('short',0)} @ {pos.get('short_cost_basis',0):.2f}"
+                )
+        else:
+            print("Positions: (none)")
+
+        # Also log via logger for GUI log panel
+        logger.info("[PM] Final decisions: %s", json.dumps(decisions_map, ensure_ascii=False))
+        logger.info(
+            "[PM] Account snapshot: cash=%.2f, margin_req=%.2f, margin_used=%.2f",
+            pf.get('cash', 0), pf.get('margin_requirement', 0), pf.get('margin_used', 0)
+        )
+    except Exception:
+        pass
 
     progress.update_status(agent_id, None, "Done")
 

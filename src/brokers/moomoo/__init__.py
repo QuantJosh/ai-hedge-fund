@@ -10,9 +10,16 @@ from .config import MoomooConfig
 class MoomooTrading:
     """Main interface for Moomoo trading operations"""
     
-    def __init__(self, config_path=None):
+    def __init__(self, config_path=None, paper_override=None):
         """Initialize Moomoo trading interface"""
         self.config = MoomooConfig(config_path)
+        # Optional override for trading environment (simulate vs real)
+        if paper_override is not None:
+            try:
+                # Underlying config dict
+                self.config.config['paper_trading'] = bool(paper_override)
+            except Exception:
+                pass
         self.client = MoomooClient(self.config)
         self.executor = MoomooExecutor(self.client)
         self.connected = False
@@ -67,6 +74,6 @@ class MoomooTrading:
 
 
 # Convenience function
-def create_moomoo_trading(config_path=None):
+def create_moomoo_trading(config_path=None, paper_override=None):
     """Create and return MoomooTrading instance"""
-    return MoomooTrading(config_path)
+    return MoomooTrading(config_path, paper_override)

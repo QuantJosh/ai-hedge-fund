@@ -15,8 +15,7 @@ class TradingTab(ttk.Frame):
         # Controls
         controls = ttk.Frame(self)
         controls.pack(fill=tk.X, padx=8, pady=6)
-        ttk.Button(controls, text="转换为Moomoo格式", command=self._convert).pack(side=tk.LEFT)
-        ttk.Button(controls, text="模拟执行(安全)", command=self._simulate).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="模拟执行(安全)", command=self._simulate).pack(side=tk.LEFT)
         ttk.Button(controls, text="在Moomoo执行(纸质)", command=self._execute).pack(side=tk.LEFT, padx=(8, 0))
 
         # Decisions preview
@@ -33,6 +32,13 @@ class TradingTab(ttk.Frame):
         # Execution status
         self.exec_lbl = ttk.Label(self, text="未执行")
         self.exec_lbl.pack(fill=tk.X, padx=8, pady=(0, 8))
+
+        # Execution details
+        detail_frame = ttk.LabelFrame(self, text="执行结果明细")
+        detail_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+        self.exec_text = tk.Text(detail_frame, height=10, wrap=tk.NONE)
+        self.exec_text.configure(state=tk.DISABLED)
+        self.exec_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         self.after(800, self._poll)
 
@@ -76,22 +82,42 @@ class TradingTab(ttk.Frame):
             ok = sum(1 for r in self.app_state.execution_results.values() if r.get("success"))
             total = len(self.app_state.execution_results)
             self.exec_lbl.config(text=f"模拟执行结果：{ok}/{total} 成功")
+            # Update details
+            try:
+                self.exec_text.configure(state=tk.NORMAL)
+                self.exec_text.delete("1.0", tk.END)
+                for tkr, r in self.app_state.execution_results.items():
+                    line = (
+                        f"{tkr}: success={r.get('success')}, "
+                        f"order_id={r.get('order_id')}, "
+                        f"executed_qty={r.get('executed_quantity')}, "
+                        f"price={r.get('executed_price')}, "
+                        f"msg={r.get('message')}\n"
+                    )
+                    self.exec_text.insert(tk.END, line)
+                self.exec_text.configure(state=tk.DISABLED)
+            except Exception:
+                try:
+                    self.exec_text.configure(state=tk.DISABLED)
+                except Exception:
+                    pass
         else:
             self.exec_lbl.config(text="未执行")
-
-    def _convert(self):
-        out = convert_decisions_for_moomoo(self.app_state)
-        if out:
-            messagebox.showinfo("完成", "已转换为 Moomoo 决策格式（仍处于安全模式，无真实下单）。")
-        self._render()
+            try:
+                self.exec_text.configure(state=tk.NORMAL)
+                self.exec_text.delete("1.0", tk.END)
+                self.exec_text.insert(tk.END, "尚无执行结果。\n")
+                self.exec_text.configure(state=tk.DISABLED)
+            except Exception:
+                pass
 
     def _simulate(self):
         if not self.app_state.moomoo_decisions and not (self.app_state.last_result and self.app_state.last_result.get("decisions")):
             messagebox.showwarning("提示", "没有可执行的决策，请先完成分析与转换。")
             return
         if not self.app_state.moomoo_decisions:
-            # Try auto-convert
-            self._convert()
+            # Auto-convert silently
+            convert_decisions_for_moomoo(self.app_state)
         out = simulate_execution(self.app_state)
         if out:
             messagebox.showinfo("完成", "已生成模拟执行结果（未连接 Moomoo）。")

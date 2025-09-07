@@ -12,6 +12,14 @@ DEFAULT_CONFIG = {
     "paper_trading_only": True,
     "auto_execute": False,
     "show_reasoning": True,
+    # LLM settings (GUI-selectable)
+    "model_provider": "OpenRouter",
+    "model_name": "openai/gpt-4o-mini",
+    # LLM runtime controls
+    "llm_max_concurrency": "3",   # string for easy textbox editing
+    "llm_request_timeout": "60",  # seconds, string
+    # Whether to sync live portfolio from Moomoo before analysis (may slow down)
+    "use_live_portfolio_for_analysis": False,
     "refresh_intervals": {"account_seconds": 60, "logs_ms": 300},
 }
 

@@ -16,7 +16,7 @@ try:
 except Exception:
     _HAS_MPL = False
 
-from .services import get_candles, get_orders_for_ticker
+from .services import get_candles, get_orders_for_ticker, get_conclusions_for_ticker
 
 
 class MarketsTab(ttk.Frame):
@@ -88,20 +88,35 @@ class MarketsTab(ttk.Frame):
             import pandas as pd
             try:
                 df = pd.DataFrame(candles)
-                # Normalize time column
+                # Normalize time column to tz-naive datetimes
                 from datetime import datetime
                 def _parse(s):
+                    dt = None
                     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d"):
                         try:
-                            return datetime.strptime(str(s), fmt)
+                            dt = datetime.strptime(str(s), fmt)
+                            break
                         except Exception:
                             pass
+                    if dt is None:
+                        try:
+                            dt = datetime.fromisoformat(str(s))
+                        except Exception:
+                            dt = datetime.now()
+                    # force tz-naive
                     try:
-                        return datetime.fromisoformat(str(s))
+                        if getattr(dt, "tzinfo", None) is not None:
+                            dt = dt.replace(tzinfo=None)
                     except Exception:
-                        return datetime.now()
+                        pass
+                    return dt
                 df["Date"] = df["time"].apply(_parse)
                 df.set_index("Date", inplace=True)
+                # ensure index is tz-naive
+                try:
+                    df.index = df.index.tz_localize(None)
+                except Exception:
+                    pass
                 df = df[["open", "high", "low", "close"]]
                 df.columns = ["Open", "High", "Low", "Close"]
 
@@ -131,6 +146,36 @@ class MarketsTab(ttk.Frame):
                         s_index = [p[0] for p in sell_pts]; s_val = [p[1] for p in sell_pts]
                         s_series = pd.Series(s_val, index=s_index)
                         apds.append(mpf.make_addplot(s_series, type='scatter', markersize=60, marker='v', color='#dc2626', panel=0, secondary_y=False))
+
+                # Overlay agent conclusions
+                concls = get_conclusions_for_ticker(self.app_state, symbol) if self.app_state else []
+                if concls:
+                    import pandas as pd
+                    buy_c, sell_c, hold_c = [], [], []
+                    for c in concls:
+                        ts = c.get("time"); action = str(c.get("action", "hold")).lower()
+                        ts_parsed = df.index.asof(_parse(ts)) if hasattr(df.index, 'asof') else None
+                        if ts_parsed is None:
+                            continue
+                        # align to close price for visibility
+                        price = float(df.loc[ts_parsed, "Close"]) if ts_parsed in df.index else None
+                        if price is None:
+                            continue
+                        if action.startswith("buy"):
+                            buy_c.append((ts_parsed, price))
+                        elif action.startswith("sell"):
+                            sell_c.append((ts_parsed, price))
+                        else:
+                            hold_c.append((ts_parsed, price))
+                    if buy_c:
+                        idx = [p[0] for p in buy_c]; val = [p[1] for p in buy_c]
+                        apds.append(mpf.make_addplot(pd.Series(val, index=idx), type='scatter', markersize=40, marker='o', color='#22c55e'))
+                    if sell_c:
+                        idx = [p[0] for p in sell_c]; val = [p[1] for p in sell_c]
+                        apds.append(mpf.make_addplot(pd.Series(val, index=idx), type='scatter', markersize=40, marker='o', color='#ef4444'))
+                    if hold_c:
+                        idx = [p[0] for p in hold_c]; val = [p[1] for p in hold_c]
+                        apds.append(mpf.make_addplot(pd.Series(val, index=idx), type='scatter', markersize=20, marker='o', color='#6b7280'))
                 # Use returnfig to let mplfinance manage figure creation (fix suptitle issue)
                 fig, _axlist = mpf.plot(df, type='candle', style='yahoo', addplot=apds, title=f"{symbol}", returnfig=True)
                 self._create_canvas(fig)
@@ -145,7 +190,17 @@ class MarketsTab(ttk.Frame):
             # Fallback manual drawing
             if self.ax is None or self.fig is None:
                 self._create_canvas(plt.Figure(figsize=(8, 5), dpi=100))
-            self.ax.clear()
+            # Ensure an Axes exists before clearing
+            if self.ax is None:
+                try:
+                    self.ax = self.fig.add_subplot(111)
+                except Exception:
+                    pass
+            if self.ax is not None:
+                self.ax.clear()
+            else:
+                # As a last resort, create and use current axes
+                self.ax = self.fig.gca()
             if not candles:
                 self.ax.set_title(f"{symbol} - no data")
                 self.canvas.draw();
@@ -194,8 +249,31 @@ class MarketsTab(ttk.Frame):
                     self.ax.scatter(buy_x, buy_y, marker='^', color='#16a34a', s=50, label='BUY')
                 if sell_x:
                     self.ax.scatter(sell_x, sell_y, marker='v', color='#dc2626', s=50, label='SELL')
-                if buy_x or sell_x:
-                    self.ax.legend(loc='best')
+            # Conclusions overlay
+            concls = get_conclusions_for_ticker(self.app_state, symbol) if self.app_state else []
+            if concls:
+                bx, by, sx, sy, hx, hy = [], [], [], [], [], []
+                for c in concls:
+                    ts = c.get('time'); action = str(c.get('action', 'hold')).lower()
+                    x = mdates.date2num(_parse_dt(ts))
+                    # align to nearest candle close if available, else use y from last close
+                    y = closes[-1] if closes else 0.0
+                    if action.startswith('buy'):
+                        bx.append(x); by.append(y)
+                    elif action.startswith('sell'):
+                        sx.append(x); sy.append(y)
+                    else:
+                        hx.append(x); hy.append(y)
+                if bx:
+                    self.ax.scatter(bx, by, marker='o', color='#22c55e', s=30, label='AGENT BUY')
+                if sx:
+                    self.ax.scatter(sx, sy, marker='o', color='#ef4444', s=30, label='AGENT SELL')
+                if hx:
+                    self.ax.scatter(hx, hy, marker='o', color='#6b7280', s=20, label='AGENT HOLD')
+            # Legend
+            handles, labels = self.ax.get_legend_handles_labels()
+            if handles:
+                self.ax.legend(loc='best')
             self.canvas.draw()
         else:
             self.notice.config(text="Matplotlib not installed. Please install matplotlib.")
@@ -226,6 +304,14 @@ class MarketsTab(ttk.Frame):
             self.toolbar_widget = toolbar
         except Exception:
             self.toolbar_widget = None
+        # ensure we have an Axes
+        try:
+            if len(self.fig.axes) > 0:
+                self.ax = self.fig.axes[0]
+            else:
+                self.ax = self.fig.add_subplot(111)
+        except Exception:
+            self.ax = None
         # disconnect previous hover
         if self._hover_cid is not None:
             try:

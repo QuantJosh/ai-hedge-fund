@@ -90,6 +90,7 @@ class MoomooClient:
         
         # Connection status
         self.connected = False
+        self.has_trading_account = True  # set false if unlock fails or no account
         
         # Market mapping
         if moomoo:
@@ -125,11 +126,40 @@ class MoomooClient:
             # Market state query seems to have format issues, so we skip it
             # The connection will be tested when we actually use it
             
-            # Unlock trading (for paper trading)
+            # Account availability check / unlock
             if self.paper_trading:
-                ret, data = self.trade_ctx.unlock_trade("123456")  # Default paper trading password
-                if ret != RET_OK:
-                    print(f"Warning: Failed to unlock trading: {data}")
+                # For SIMULATE env, OpenD should not require unlock. Verify account list instead.
+                try:
+                    if hasattr(self.trade_ctx, "get_acc_list"):
+                        ret, accs = self.trade_ctx.get_acc_list()
+                        if ret == RET_OK and accs is not None and not getattr(accs, 'empty', True):
+                            self.has_trading_account = True
+                            print(f"✅ Paper trading account(s) detected: {len(accs)})")
+                        else:
+                            self.has_trading_account = False
+                            print(f"Warning: No paper trading account available (get_acc_list empty)")
+                    else:
+                        # Fallback: assume available; actual order call will validate
+                        self.has_trading_account = True
+                        print("Info: get_acc_list not available on trade context; proceeding with SIMULATE env")
+                except Exception as e:
+                    # Do not block simulate trading; proceed but mark as available and let order API decide
+                    self.has_trading_account = True
+                    print(f"Info: get_acc_list check failed ({e}); proceeding in SIMULATE env")
+            else:
+                # REAL env: require unlock password
+                try:
+                    import os
+                    trade_pwd = os.getenv("MOOMOO_TRADE_PASSWORD", "")
+                    if not trade_pwd:
+                        print("Warning: REAL trading requires MOOMOO_TRADE_PASSWORD env; unlock will likely fail")
+                    ret, data = self.trade_ctx.unlock_trade(trade_pwd)
+                    if ret != RET_OK:
+                        print(f"Warning: Failed to unlock REAL trading: {data}")
+                        self.has_trading_account = False
+                except Exception as e:
+                    print(f"Warning: Exception during REAL unlock: {e}")
+                    self.has_trading_account = False
             
             self.connected = True
             print(f"✅ Connected to Moomoo OpenD (Paper Trading: {self.paper_trading})")
@@ -271,6 +301,11 @@ class MoomooClient:
                     success=False,
                     message="Not connected to Moomoo"
                 )
+            if not self.has_trading_account:
+                return OrderResult(
+                    success=False,
+                    message="No available trading account (paper) — skip execution"
+                )
             
             # Convert ticker format
             full_ticker = f"{self.market}.{ticker}"
@@ -330,6 +365,8 @@ class MoomooClient:
         """
         try:
             if not self.connected:
+                return []
+            if not self.has_trading_account:
                 return []
 
             def _to_float(v) -> float:

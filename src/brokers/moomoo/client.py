@@ -88,24 +88,22 @@ class MoomooClient:
                 port=self.config.port
             )
             
-            # Test quote connection with a simple call
+            # Optional: Test quote connection with a simple call (non-fatal)
             try:
                 ret, data = self.quote_ctx.get_market_state(self.config.get_market_enum())
                 if ret != moomoo.RET_OK:
                     print(f"Warning: Market state query failed: {data}")
-                    # Continue anyway, connection is established
             except Exception as e:
                 print(f"Warning: Market state test failed: {e}")
-                # Continue anyway, connection is established
             
-            # Unlock trading
+            # Unlock trading only in REAL environment; SIMULATE does not require unlock
             try:
-                ret, data = self.trade_ctx.unlock_trade(password=self.config.trade_password)
-                if ret != moomoo.RET_OK:
-                    print(f"Warning: Trading unlock failed: {data}")
-                    # Continue anyway for quote-only operations
-                else:
-                    print("✅ Trading unlocked successfully")
+                if self.config.get_trd_env() == moomoo.TrdEnv.REAL:
+                    ret, data = self.trade_ctx.unlock_trade(password=self.config.trade_password)
+                    if ret != moomoo.RET_OK:
+                        print(f"Warning: Trading unlock failed (REAL): {data}")
+                    else:
+                        print("✅ Trading unlocked successfully (REAL)")
             except Exception as e:
                 print(f"Warning: Trading unlock error: {e}")
             
@@ -221,14 +219,29 @@ class MoomooClient:
                     full_code = row['code']
                     ticker = full_code.split('.')[-1] if '.' in full_code else full_code
                     
+                    def safe_float(value, default=0.0):
+                        if value is None or value == 'N/A' or value == '':
+                            return default
+                        try:
+                            return float(value)
+                        except (ValueError, TypeError):
+                            return default
+                    def safe_int(value, default=0):
+                        if value is None or value == 'N/A' or value == '':
+                            return default
+                        try:
+                            return int(float(value))
+                        except (ValueError, TypeError):
+                            return default
+                    
                     positions[ticker] = Position(
                         ticker=ticker,
-                        quantity=int(row.get('qty', 0)),
-                        market_value=float(row.get('market_val', 0)),
-                        cost_price=float(row.get('cost_price', 0)),
-                        current_price=float(row.get('nominal_price', 0)),
-                        unrealized_pnl=float(row.get('unrealized_pl', 0)),
-                        unrealized_pnl_ratio=float(row.get('unrealized_pl_ratio', 0))
+                        quantity=safe_int(row.get('qty', 0)),
+                        market_value=safe_float(row.get('market_val', 0)),
+                        cost_price=safe_float(row.get('cost_price', 0)),
+                        current_price=safe_float(row.get('nominal_price', 0)),
+                        unrealized_pnl=safe_float(row.get('unrealized_pl', 0)),
+                        unrealized_pnl_ratio=safe_float(row.get('unrealized_pl_ratio', 0))
                     )
             
             return positions
@@ -335,18 +348,35 @@ class MoomooClient:
         try:
             if not self.connected or not self.trade_ctx:
                 return False, "Not connected to Moomoo"
-            
+
+            # Many SDK versions require qty and price even for CANCEL.
+            # Try to fetch the current order's qty and price; fallback to 0/0 for MARKET orders.
+            qty = 0
+            price = 0.0
+            try:
+                qret, qdata = self.trade_ctx.order_list_query(trd_env=self.config.get_trd_env())
+                if qret == moomoo.RET_OK and qdata is not None and not qdata.empty:
+                    row = qdata[qdata['order_id'] == order_id]
+                    if not row.empty:
+                        qty = int(float(row.iloc[0].get('qty', 0) or 0))
+                        price = float(row.iloc[0].get('price', 0) or 0.0)
+            except Exception:
+                pass
+
+            # Call modify_order with required fields present
             ret, data = self.trade_ctx.modify_order(
                 modify_order_op=moomoo.ModifyOrderOp.CANCEL,
                 order_id=order_id,
+                qty=qty,
+                price=price,
                 trd_env=self.config.get_trd_env()
             )
-            
+
             if ret != moomoo.RET_OK:
                 return False, f"Cancel failed: {data}"
-            
+
             return True, "Order cancelled successfully"
-            
+        
         except Exception as e:
             return False, f"Error cancelling order: {e}"
     

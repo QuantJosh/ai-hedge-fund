@@ -320,6 +320,133 @@ def test_simulated_execution():
         return False
 
 
+def test_place_and_cancel():
+    """Place a tiny market order in SIMULATE env and then cancel it (paper-only safety)."""
+    print("\n🧪 Testing Paper Order Place & Cancel (SIMULATE only)...")
+    print("-" * 40)
+    try:
+        with create_moomoo_trading() as trading:
+            if not trading.connected:
+                print("❌ Not connected to Moomoo")
+                return False
+            # Safety: only allow in paper trading
+            if not getattr(trading.config, "paper_trading", True):
+                print("⚠️ Refusing to place order: not in paper (SIMULATE) environment")
+                return False
+
+            ticker = "AAPL"  # You may change to a symbol in your paper market
+            qty = 1
+            print(f"Placing MARKET BUY {qty} share(s) of {ticker} in SIMULATE env...")
+            ok, msg, order_id = trading.client.place_order(
+                ticker=ticker,
+                side="BUY",
+                quantity=qty,
+                order_type="MARKET",
+            )
+            if not ok or not order_id:
+                print(f"❌ Place order failed: {msg}")
+                return False
+            print(f"✅ Order placed. ID={order_id}")
+
+            # Brief wait, then query status
+            time.sleep(2)
+            status = trading.client.get_order_status(order_id)
+            if status:
+                print(f"🔎 Order status: {status.get('status')} | filled={status.get('filled_qty')} avg_price={status.get('avg_price')}")
+            else:
+                print("🔎 Order status not found yet")
+
+            # Cancel the order (safe in paper env)
+            ok_cancel, cancel_msg = trading.client.cancel_order(order_id)
+            if ok_cancel:
+                print("✅ Order cancelled successfully")
+                return True
+            else:
+                print(f"⚠️ Cancel failed: {cancel_msg}")
+                # Still consider placement success as primary objective
+                return True
+    except KeyboardInterrupt:
+        print("\n❌ Interrupted by user")
+        return False
+    except Exception as e:
+        print(f"❌ Place & Cancel test failed: {e}")
+        return False
+
+
+def test_final_snapshot():
+    """Print final snapshot: account info, positions, today's orders, and open orders."""
+    print("\n📸 Final Snapshot (Account / Positions / Orders)...")
+    print("-" * 60)
+    try:
+        with create_moomoo_trading() as trading:
+            if not trading.connected:
+                print("❌ Not connected to Moomoo")
+                return False
+
+            # Account info
+            acct = trading.get_account_info()
+            if acct:
+                print("✅ Account:")
+                print(f"   Cash=${acct.cash:,.2f}  Total=${acct.total_assets:,.2f}  MV=${acct.market_value:,.2f}  UPL=${acct.unrealized_pnl:,.2f}  CCY={acct.currency}")
+            else:
+                print("❌ Failed to get account info")
+
+            # Positions
+            positions = trading.get_positions()
+            print(f"✅ Positions: {len(positions)}")
+            if positions:
+                for tkr, pos in positions.items():
+                    print(f"   {tkr}: qty={pos.quantity} mv=${pos.market_value:,.2f} upnl=${pos.unrealized_pnl:,.2f}")
+            else:
+                print("   📭 No active positions")
+
+            # Today's orders
+            try:
+                ret, data = trading.client.trade_ctx.order_list_query(trd_env=trading.config.get_trd_env())
+                if ret == 0 and data is not None and not data.empty:
+                    print(f"✅ Today's Orders: {len(data)}")
+                    open_statuses = {"SUBMITTED", "SUBMITTING", "PARTIALLY_FILLED", "PENDING_SUBMIT"}
+                    open_cnt = 0
+                    for _, row in data.iterrows():
+                        oid = row.get("order_id")
+                        code = row.get("code")
+                        side = row.get("trd_side") or row.get("trdSide")
+                        status = str(row.get("order_status") or row.get("orderStatus") or "")
+                        qty = row.get("qty", 0)
+                        dealt = row.get("dealt_qty", 0)
+                        avg = row.get("dealt_avg_price", 0)
+                        print(f"   {oid} | {code} | {side} | {status} | qty={qty} dealt={dealt} avg={avg}")
+                        if status.upper() in open_statuses:
+                            open_cnt += 1
+                    print(f"   🔎 Open/Waiting orders: {open_cnt}")
+                else:
+                    print("✅ Today's Orders: 0")
+            except Exception as e:
+                print(f"⚠️ Failed to get today's orders: {e}")
+
+            # Recent history (last 7 days)
+            try:
+                from datetime import datetime, timedelta
+                end = datetime.now().date()
+                start = end - timedelta(days=7)
+                ret, hdata = trading.client.trade_ctx.history_order_list_query(
+                    trd_env=trading.config.get_trd_env(),
+                    start=start.strftime("%Y-%m-%d"),
+                    end=end.strftime("%Y-%m-%d"),
+                )
+                if ret == 0 and hdata is not None and not hdata.empty:
+                    print(f"✅ History Orders (7d): {len(hdata)}")
+                else:
+                    print("✅ History Orders (7d): 0")
+            except Exception as e:
+                print(f"⚠️ Failed to get history orders: {e}")
+
+            return True
+    except Exception as e:
+        print(f"❌ Final snapshot failed: {e}")
+        return False
+
+
 def run_comprehensive_test():
     """Run all tests"""
     print("🚀 Moomoo Broker Integration Test Suite")
@@ -346,6 +473,8 @@ def run_comprehensive_test():
         ("Market Data", test_market_data),
         ("Order Validation", test_order_validation),
         ("Simulated Execution", test_simulated_execution),
+        ("Place & Cancel (Paper)", test_place_and_cancel),
+        ("Final Snapshot (Acct/Pos/Orders)", test_final_snapshot),
     ]
     
     results = []
@@ -405,15 +534,34 @@ def main():
     parser = argparse.ArgumentParser(description="Moomoo Broker Integration Test")
     parser.add_argument("--test", choices=[
         "config", "connection", "account", "paper_funds", "positions", 
-        "market", "validation", "simulation", "all"
+        "market", "validation", "simulation", "place_cancel", "final_snapshot", "all"
     ], default="all", help="Specific test to run")
     parser.add_argument("--timeout", type=int, default=30, help="Connection timeout in seconds")
+    parser.add_argument("--env", choices=["simulate", "real"], default="simulate", help="Trading environment")
+    parser.add_argument("--i-know-what-im-doing", action="store_true", dest="ack_risk", help="Allow real trading actions in tests")
     
     args = parser.parse_args()
     
     try:
         if args.test == "all":
-            success = run_comprehensive_test()
+            # Override environment globally by updating config loader default
+            # Tests use create_moomoo_trading() which accepts paper_override
+            def _runner():
+                nonlocal args
+                paper = True if args.env == "simulate" else False
+                # Monkey-patch factory in closure for each test call
+                # We'll pass paper_override in every test by wrapping create_moomoo_trading
+                import importlib
+                moomoo_pkg = importlib.import_module("src.brokers.moomoo")
+                orig_factory = getattr(moomoo_pkg, "create_moomoo_trading")
+                def wrapped_factory(config_path=None):
+                    return orig_factory(config_path=config_path, paper_override=paper)
+                moomoo_pkg.create_moomoo_trading = wrapped_factory
+                try:
+                    return run_comprehensive_test()
+                finally:
+                    moomoo_pkg.create_moomoo_trading = orig_factory
+            success = _runner()
         else:
             test_map = {
                 "config": test_configuration,
@@ -423,11 +571,28 @@ def main():
                 "positions": test_positions,
                 "market": test_market_data,
                 "validation": test_order_validation,
-                "simulation": test_simulated_execution
+                "simulation": test_simulated_execution,
+                "place_cancel": test_place_and_cancel,
+                "final_snapshot": test_final_snapshot,
             }
             
             if args.test in test_map:
-                success = test_map[args.test]()
+                # Wrap factory to apply env override
+                paper = True if args.env == "simulate" else False
+                from src.brokers.moomoo import __init__ as moomoo_pkg
+                orig_factory = moomoo_pkg.create_moomoo_trading
+                def wrapped_factory(config_path=None):
+                    return orig_factory(config_path=config_path, paper_override=paper)
+                moomoo_pkg.create_moomoo_trading = wrapped_factory
+
+                # Block risky tests in REAL unless user acknowledges
+                if args.env == "real" and args.test == "place_cancel" and not args.ack_risk:
+                    print("⚠️ Refusing to run place_cancel in REAL env without --i-know-what-im-doing")
+                    success = False
+                else:
+                    success = test_map[args.test]()
+
+                moomoo_pkg.create_moomoo_trading = orig_factory
             else:
                 print(f"Unknown test: {args.test}")
                 success = False

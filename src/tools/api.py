@@ -42,20 +42,41 @@ def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: d
     Raises:
         Exception: If the request fails with a non-429 error
     """
-    for attempt in range(max_retries + 1):  # +1 for initial attempt
+    # Configurable network controls via env
+    try:
+        timeout_s = float(os.getenv("DATA_REQUEST_TIMEOUT", "20"))
+    except Exception:
+        timeout_s = 20.0
+    try:
+        base_backoff = float(os.getenv("DATA_BACKOFF_BASE", "5"))
+    except Exception:
+        base_backoff = 5.0
+    try:
+        env_retries = int(os.getenv("DATA_MAX_RETRIES", str(max_retries)))
+        retries = max(0, env_retries)
+    except Exception:
+        retries = max_retries
+
+    for attempt in range(retries + 1):  # +1 for initial attempt
         if method.upper() == "POST":
-            response = requests.post(url, headers=headers, json=json_data)
+            response = requests.post(url, headers=headers, json=json_data, timeout=timeout_s)
         else:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=timeout_s)
         
-        if response.status_code == 429 and attempt < max_retries:
-            # Linear backoff: 60s, 90s, 120s, 150s...
-            delay = 60 + (30 * attempt)
-            print(f"Rate limited (429). Attempt {attempt + 1}/{max_retries + 1}. Waiting {delay}s before retrying...")
+        if response.status_code == 429 and attempt < retries:
+            # Moderate backoff, configurable (default 5s, 10s, 15s...)
+            delay = base_backoff * (attempt + 1)
+            print(f"Rate limited (429). Attempt {attempt + 1}/{retries + 1}. Waiting {delay:.1f}s before retrying...")
+            time.sleep(delay)
+            continue
+        # On server errors, retry quickly with the same backoff
+        if 500 <= response.status_code < 600 and attempt < retries:
+            delay = base_backoff * (attempt + 1)
+            print(f"Server error {response.status_code}. Attempt {attempt + 1}/{retries + 1}. Waiting {delay:.1f}s before retrying...")
             time.sleep(delay)
             continue
         
-        # Return the response (whether success, other errors, or final 429)
+        # Return the response (whether success, other errors, or final retry)
         return response
 
 

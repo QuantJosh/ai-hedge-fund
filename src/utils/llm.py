@@ -2,10 +2,12 @@
 
 import json
 from pydantic import BaseModel
-from src.llm.models import get_model, get_model_info
+from src.llm.models import get_model, get_model_info, ModelProvider
 from src.utils.progress import progress
 from src.graph.state import AgentState
 from src.utils.llm_logger import log_llm_call
+import threading
+import os
 
 
 @log_llm_call()
@@ -40,6 +42,21 @@ def call_llm(
         model_name = "gpt-4.1"
         model_provider = "OPENAI"
 
+    # Normalize provider to enum for downstream functions
+    provider_enum: ModelProvider
+    if isinstance(model_provider, ModelProvider):
+        provider_enum = model_provider
+    else:
+        # Try value match (e.g., "OpenRouter"), then name match (e.g., "OPENROUTER")
+        try:
+            provider_enum = ModelProvider(model_provider)
+        except Exception:
+            try:
+                provider_enum = ModelProvider[str(model_provider).upper()]
+            except Exception:
+                # Fallback to OpenAI
+                provider_enum = ModelProvider.OPENAI
+
     # Extract API keys from state if available
     api_keys = None
     if state:
@@ -47,8 +64,8 @@ def call_llm(
         if request and hasattr(request, 'api_keys'):
             api_keys = request.api_keys
 
-    model_info = get_model_info(model_name, model_provider)
-    llm = get_model(model_name, model_provider, api_keys)
+    model_info = get_model_info(model_name, provider_enum)
+    llm = get_model(model_name, provider_enum, api_keys)
 
     # For non-JSON support models, we can use structured output
     if not (model_info and not model_info.has_json_mode()):
@@ -57,11 +74,21 @@ def call_llm(
             method="json_mode",
         )
 
+    # Concurrency control via semaphore
+    _MAX = int(os.getenv("LLM_MAX_CONCURRENCY", "3"))
+    # A module-level semaphore per process
+    global _LLM_SEM
+    try:
+        _LLM_SEM
+    except NameError:
+        _LLM_SEM = threading.Semaphore(_MAX if _MAX > 0 else 1)
+
     # Call the LLM with retries
     for attempt in range(max_retries):
         try:
             # Call the LLM
-            result = llm.invoke(prompt)
+            with _LLM_SEM:
+                result = llm.invoke(prompt)
 
             # For non-JSON support models, we need to extract and parse the JSON manually
             if model_info and not model_info.has_json_mode():

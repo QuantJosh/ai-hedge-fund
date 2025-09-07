@@ -18,6 +18,7 @@ import argparse
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from src.utils.visualize import save_graph_as_png
+from src.utils.logger import get_logger
 import json
 
 # Load environment variables from .env file
@@ -57,6 +58,21 @@ def run_hedge_fund(
     progress.start()
 
     try:
+        logger = get_logger()
+        try:
+            logger.log_system(
+                "Analysis starting",
+                {
+                    "tickers": tickers,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "analysts_count": len(selected_analysts or []),
+                    "model_provider": model_provider,
+                    "model_name": model_name,
+                },
+            )
+        except Exception:
+            pass
         # Create a new workflow if analysts are customized
         if selected_analysts:
             workflow = create_workflow(selected_analysts)
@@ -64,28 +80,41 @@ def run_hedge_fund(
         else:
             agent = app
 
-        final_state = agent.invoke(
-            {
-                "messages": [
-                    HumanMessage(
-                        content="Make trading decisions based on the provided data.",
-                    )
-                ],
-                "data": {
-                    "tickers": tickers,
-                    "portfolio": portfolio,
-                    "start_date": start_date,
-                    "end_date": end_date,
-                    "analyst_signals": {},
-                },
-                "metadata": {
-                    "show_reasoning": show_reasoning,
-                    "model_name": model_name,
-                    "model_provider": model_provider,
-                    "config": config or {},
-                },
+        payload = {
+            "messages": [
+                HumanMessage(
+                    content="Make trading decisions based on the provided data.",
+                )
+            ],
+            "data": {
+                "tickers": tickers,
+                "portfolio": portfolio,
+                "start_date": start_date,
+                "end_date": end_date,
+                "analyst_signals": {},
             },
-        )
+            "metadata": {
+                "show_reasoning": show_reasoning,
+                "model_name": model_name,
+                "model_provider": model_provider,
+                "config": config or {},
+            },
+        }
+        try:
+            logger.log_system("Agent.invoke starting", {"messages": 1, "tickers": len(tickers)})
+        except Exception:
+            pass
+        final_state = agent.invoke(payload)
+        try:
+            logger.log_system(
+                "Agent.invoke finished",
+                {
+                    "messages": len(final_state.get("messages", [])) if isinstance(final_state, dict) else None,
+                    "analyst_signals_keys": list((final_state.get("data", {}) or {}).get("analyst_signals", {}).keys()) if isinstance(final_state, dict) else [],
+                },
+            )
+        except Exception:
+            pass
 
         return {
             "decisions": parse_hedge_fund_response(final_state["messages"][-1].content),
