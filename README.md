@@ -1,418 +1,102 @@
-# AI Hedge Fund
+# AI Hedge Fund (Research & Developer Framework)
 
-This project is based on the original AI Hedge Fund project:
+This project is a **research and developer framework for exploring AI-driven investment analysis and trading strategies using Large Language Models (LLMs).**
+
+It is based on the original project:
 https://github.com/virattt/ai-hedge-fund
 
-This version includes modifications and improvements.
+This version includes **modifications, improvements, and additional research tooling** designed to explore how AI agents can collaborate to analyze financial data and simulate investment decisions.
 
-This is a proof of concept for an AI-powered hedge fund.  The goal of this project is to explore the use of AI to make trading decisions.  This project is for **educational** purposes only and is not intended for real trading or investment.
+The goal of this project is to investigate how **LLM-based agents, quantitative analysis, and automated reasoning systems** can be combined into a multi-agent decision framework.
 
-This system employs several agents working together:
+⚠️ **Important:**  
+This project is a **proof-of-concept for research and educational purposes only** and **does not execute real trades**.
 
-1. Aswath Damodaran Agent - The Dean of Valuation, focuses on story, numbers, and disciplined valuation
-2. Ben Graham Agent - The godfather of value investing, only buys hidden gems with a margin of safety
-3. Bill Ackman Agent - An activist investor, takes bold positions and pushes for change
-4. Cathie Wood Agent - The queen of growth investing, believes in the power of innovation and disruption
-5. Charlie Munger Agent - Warren Buffett's partner, only buys wonderful businesses at fair prices
-6. Michael Burry Agent - The Big Short contrarian who hunts for deep value
-7. Mohnish Pabrai Agent - The Dhandho investor, who looks for doubles at low risk
-8. Peter Lynch Agent - Practical investor who seeks "ten-baggers" in everyday businesses
-9. Phil Fisher Agent - Meticulous growth investor who uses deep "scuttlebutt" research 
-10. Rakesh Jhunjhunwala Agent - The Big Bull of India
-11. Stanley Druckenmiller Agent - Macro legend who hunts for asymmetric opportunities with growth potential
-12. Warren Buffett Agent - The oracle of Omaha, seeks wonderful companies at a fair price
-13. Valuation Agent - Calculates the intrinsic value of a stock and generates trading signals
-14. Sentiment Agent - Analyzes market sentiment and generates trading signals
-15. Fundamentals Agent - Analyzes fundamental data and generates trading signals
-16. Technicals Agent - Analyzes technical indicators and generates trading signals
-17. Risk Manager - Calculates risk metrics and sets position limits
-18. Portfolio Manager - Makes final trading decisions and generates orders
+---
 
-<img width="1042" alt="Screenshot 2025-03-22 at 6 19 07 PM" src="https://github.com/user-attachments/assets/cbae3dcf-b571-490d-b0ad-3f0f035ac0d4" />
+## Key Research Goals
 
-Note: the system does not actually make any trades.
+This project explores several research areas:
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
+- Multi-agent AI collaboration
+- LLM-based financial reasoning
+- AI-assisted quantitative analysis
+- Automated trading strategy evaluation
+- Decision aggregation from multiple AI agents
+
+The framework allows developers and researchers to experiment with **AI-powered financial analysis systems** and observe how different AI agents interact when evaluating investment opportunities.
+
+---
+
+## System Architecture
+
+The system simulates a hedge fund where multiple AI agents collaborate to analyze financial data and produce trading signals.
+
+These agents represent different investment philosophies and analytical approaches.
+
+### Investment Strategy Agents
+
+1. **Aswath Damodaran Agent** — valuation-focused analysis using story + numbers
+2. **Ben Graham Agent** — deep value investing with margin of safety
+3. **Bill Ackman Agent** — activist investment strategies
+4. **Cathie Wood Agent** — innovation and growth investing
+5. **Charlie Munger Agent** — long-term business quality evaluation
+6. **Michael Burry Agent** — contrarian deep value analysis
+7. **Mohnish Pabrai Agent** — asymmetric risk-reward opportunities
+8. **Peter Lynch Agent** — identifying scalable growth businesses
+9. **Phil Fisher Agent** — qualitative company research
+10. **Rakesh Jhunjhunwala Agent** — long-term growth investing
+11. **Stanley Druckenmiller Agent** — macro-driven investing
+12. **Warren Buffett Agent** — high-quality value investing
+
+### Analytical Agents
+
+13. **Valuation Agent** — intrinsic value estimation  
+14. **Sentiment Agent** — market sentiment analysis  
+15. **Fundamentals Agent** — financial statement analysis  
+16. **Technicals Agent** — technical indicator analysis  
+
+### Risk & Portfolio Agents
+
+17. **Risk Manager** — portfolio risk analysis and exposure limits  
+18. **Portfolio Manager** — aggregates agent opinions and generates simulated trading decisions  
+
+---
+
+## AI / LLM Integration
+
+This framework supports multiple LLM providers, including:
+
+- OpenAI models
+- Groq models
+- local models via Ollama
+
+LLMs are used to:
+
+- analyze financial data
+- reason about investment strategies
+- generate structured trading signals
+- coordinate multi-agent decision making
+
+---
+
+## Developer & Research Use Cases
+
+This project can be used for:
+
+- studying **multi-agent AI systems**
+- experimenting with **LLM-driven reasoning workflows**
+- researching **AI-assisted quantitative finance**
+- prototyping **AI investment decision systems**
+- testing **LLM orchestration frameworks**
+
+---
 
 ## Disclaimer
 
 This project is for **educational and research purposes only**.
 
-- Not intended for real trading or investment
-- No investment advice or guarantees provided
-- Creator assumes no liability for financial losses
-- Consult a financial advisor for investment decisions
-- Past performance does not indicate future results
-
-By using this software, you agree to use it solely for learning purposes.
-
-## Table of Contents
-- [How to Install](#how-to-install)
-- [How to Run](#how-to-run)
-  - [⌨️ Command Line Interface](#️-command-line-interface)
-  - [🖥️ Web Application](#️-web-application)
-- [📊 Logging and Analysis (NEW!)](#-logging-and-analysis-new)
-  - [Quick Start](#quick-start)
-  - [Log Viewing Options](#log-viewing-options)
-  - [Advanced Analysis](#advanced-analysis)
-- [Contributing](#contributing)
-- [Feature Requests](#feature-requests)
-- [License](#license)
-
-## How to Install
-
-Before you can run the AI Hedge Fund, you'll need to install it and set up your API keys. These steps are common to both the full-stack web application and command line interface.
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/virattt/ai-hedge-fund.git
-cd ai-hedge-fund
-```
-
-### 2. Set Up Your API Keys
-
-Create a `.env` file for your API keys:
-```bash
-# Create .env file for your API keys (in the root directory)
-cp .env.example .env
-```
-
-Open and edit the `.env` file to add your API keys:
-```bash
-# For running LLMs hosted by openai (gpt-4o, gpt-4o-mini, etc.)
-OPENAI_API_KEY=your-openai-api-key
-
-# For running GigaChat (use gigachat credentials)
-GIGACHAT_API_KEY=your-gigachat-api-key
-
-# For running LLMs hosted by groq (deepseek, llama3, etc.)
-GROQ_API_KEY=your-groq-api-key
-
-# For getting financial data to power the hedge fund
-FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
-```
-
-**Important**: You must set at least one LLM API key (`OPENAI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`) for the hedge fund to work. 
-
-**Financial Data**: Data for AAPL, GOOGL, MSFT, NVDA, and TSLA is free and does not require an API key. For any other ticker, you will need to set the `FINANCIAL_DATASETS_API_KEY` in the .env file.
-
-## How to Run
-
-### ⌨️ Command Line Interface
-
-For users who prefer working with command line tools, you can run the AI Hedge Fund directly via terminal. This approach offers more granular control and is useful for automation, scripting, and integration purposes.
-
-<img width="992" alt="Screenshot 2025-01-06 at 5 50 17 PM" src="https://github.com/user-attachments/assets/e8ca04bf-9989-4a7d-a8b4-34e04666663b" />
-
-Choose one of the following installation methods:
-
-#### Using Poetry
-
-1. Install Poetry (if not already installed):
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
-
-2. Install dependencies:
-```bash
-poetry install
-```
-
-#### Using Docker
-
-1. Make sure you have Docker installed on your system. If not, you can download it from [Docker's official website](https://www.docker.com/get-started).
-
-2. Navigate to the docker directory:
-```bash
-cd docker
-```
-
-3. Build the Docker image:
-```bash
-# On Linux/Mac:
-./run.sh build
-
-# On Windows:
-run.bat build
-```
-
-#### Running the AI Hedge Fund (with Poetry)
-```bash
-poetry run python src/main.py --ticker AAPL,MSFT,NVDA
-```
-
-#### Running the AI Hedge Fund (with Docker)
-```bash
-# Navigate to the docker directory first
-cd docker
-
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA main
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA main
-```
-
-You can also specify a `--ollama` flag to run the AI hedge fund using local LLMs.
-
-```bash
-# With Poetry:
-poetry run python src/main.py --ticker AAPL,MSFT,NVDA --ollama
-
-# With Docker (from docker/ directory):
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA --ollama main
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA --ollama main
-```
-
-You can also specify a `--show-reasoning` flag to print the reasoning of each agent to the console.
-
-```bash
-# With Poetry:
-poetry run python src/main.py --ticker AAPL,MSFT,NVDA --show-reasoning
-
-# With Docker (from docker/ directory):
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA --show-reasoning main
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA --show-reasoning main
-```
-
-You can optionally specify the start and end dates to make decisions for a specific time period.
-
-```bash
-# With Poetry:
-poetry run python src/main.py --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 
-
-# With Docker (from docker/ directory):
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 main
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 main
-```
-
-#### Running the Backtester (with Poetry)
-```bash
-poetry run python src/backtester.py --ticker AAPL,MSFT,NVDA
-```
-
-#### Running the Backtester (with Docker)
-```bash
-# Navigate to the docker directory first
-cd docker
-
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA backtest
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA backtest
-```
-
-**Example Output:**
-<img width="941" alt="Screenshot 2025-01-06 at 5 47 52 PM" src="https://github.com/user-attachments/assets/00e794ea-8628-44e6-9a84-8f8a31ad3b47" />
-
-
-You can optionally specify the start and end dates to backtest over a specific time period.
-
-```bash
-# With Poetry:
-poetry run python src/backtester.py --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01
-
-# With Docker (from docker/ directory):
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 backtest
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 backtest
-```
-
-You can also specify a `--ollama` flag to run the backtester using local LLMs.
-```bash
-# With Poetry:
-poetry run python src/backtester.py --ticker AAPL,MSFT,NVDA --ollama
-
-# With Docker (from docker/ directory):
-# On Linux/Mac:
-./run.sh --ticker AAPL,MSFT,NVDA --ollama backtest
-
-# On Windows:
-run.bat --ticker AAPL,MSFT,NVDA --ollama backtest
-```
-
-### 🖥️ Web Application
-
-The new way to run the AI Hedge Fund is through our web application that provides a user-friendly interface. **This is recommended for most users, especially those who prefer visual interfaces over command line tools.**
-
-<img width="1721" alt="Screenshot 2025-06-28 at 6 41 03 PM" src="https://github.com/user-attachments/assets/b95ab696-c9f4-416c-9ad1-51feb1f5374b" />
-
-#### For Mac/Linux:
-```bash
-cd app && ./run.sh
-```
-
-If you get a "permission denied" error, run this first:
-```bash
-cd app && chmod +x run.sh && ./run.sh
-```
-
-#### For Windows:
-```bash
-# Go to /app directory
-cd app
-
-# Run the app
-\.run.bat
-```
-
-**That's it!** These scripts will:
-1. Check for required dependencies (Node.js, Python, Poetry)
-2. Install all dependencies automatically  
-3. Start both frontend and backend services
-4. **Automatically open your web browser** to the application
-
-
-#### Detailed Setup Instructions
-
-For detailed setup instructions, troubleshooting, and advanced configuration options, see:
-- [Full-Stack App Documentation](./app/README.md)
-- [Frontend Documentation](./app/frontend/README.md)  
-- [Backend Documentation](./app/backend/README.md)
-
-## 📊 Logging and Analysis (NEW!)
-
-The AI Hedge Fund now includes a comprehensive logging system that tracks all agent decisions, LLM calls, and system operations. This provides valuable insights into how the AI agents make their investment decisions.
-
-### Quick Start
-
-#### View Logs Instantly
-```bash
-# Launch the interactive log viewer
-python view_logs.py
-```
-
-This will present you with multiple viewing options:
-- 🎨 **Pretty Terminal View** (Recommended) - Colorized, easy-to-read format
-- 📊 **HTML Interactive Viewer** - Web-based interface with filtering
-- 📋 **Simple Text View** - Basic text output
-- 🔍 **Filter by Error Level** - Show only errors/warnings
-- 📈 **Show Statistics Only** - Performance and cost analysis
-
-#### Quick Run with Logging
-```bash
-# Run the hedge fund with automatic logging
-./quick_run.sh --ticker AAPL,MSFT,NVDA
-
-# Or on Windows
-quick_run.bat --ticker AAPL,MSFT,NVDA
-```
-
-### Log Viewing Options
-
-#### 1. Interactive HTML Viewer
-```bash
-# Generate and open HTML report
-python generate_log_html.py
-
-# Or use the standalone HTML viewer
-# Open tools/log_viewer.html in your browser and drag/drop log files
-```
-
-#### 2. Terminal Viewers
-```bash
-# Pretty colored output with details
-python tools/pretty_logs.py --find --details
-
-# Simple text viewer
-python tools/log_viewer.py --find
-
-# Filter by specific criteria
-python tools/pretty_logs.py --find --level ERROR --agent warren_buffett
-```
-
-#### 3. Analysis Tools
-```bash
-# Analyze LLM API costs and performance
-python analyze_llm_calls.py
-
-# Verify response completeness
-python verify_response_completeness.py
-
-# Show full LLM responses
-python show_full_responses.py
-```
-
-### Advanced Analysis
-
-#### Configuration-Based Runs
-```bash
-# Use configuration file for complex setups
-python run_with_config.py
-```
-
-Example `config.yaml`:
-```yaml
-tickers: ["AAPL", "MSFT", "NVDA", "GOOGL"]
-start_date: "2024-01-01"
-end_date: "2024-12-31"
-initial_cash: 1000000
-selected_analysts: ["warren_buffett", "peter_lynch", "ben_graham"]
-model_name: "gpt-4o"
-show_reasoning: true
-logging:
-  enabled: true
-  level: "INFO"
-  console_format: "human"
-```
-
-#### Log Analysis Features
-
-**What Gets Logged:**
-- 🤖 Agent execution start/end times
-- 🧠 LLM API requests and responses  
-- 📊 Data fetching operations
-- 🎯 Investment decisions and reasoning
-- ⚙️ System events and errors
-- 💰 API costs and token usage
-
-**Analysis Capabilities:**
-- Performance metrics (response times, success rates)
-- Cost analysis (API usage, token consumption)
-- Decision tracking (agent consensus, confidence levels)
-- Error monitoring and debugging
-- Historical trend analysis
-
-#### Log File Locations
-```
-logs/
-├── YYYYMMDD_HHMMSS/
-│   ├── structured_log.jsonl    # Machine-readable logs
-│   ├── detailed.log           # Human-readable logs
-│   └── console.log            # Console output
-└── latest -> YYYYMMDD_HHMMSS/ # Symlink to latest session
-```
-
-For detailed documentation, see [Logging Guide](./docs/LOGGING_GUIDE.md).
-
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-**Important**: Please keep your pull requests small and focused.  This will make it easier to review and merge.
-
-## Feature Requests
-
-If you have a feature request, please open an [issue](https://github.com/virattt/ai-hedge-fund/issues) and make sure it is tagged with `enhancement`.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Not intended for real trading
+- No investment advice provided
+- No guarantee of performance
+- Use only for experimentation and learning
