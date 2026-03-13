@@ -1,5 +1,10 @@
 # AI Hedge Fund
 
+This project is based on the original AI Hedge Fund project:
+https://github.com/virattt/ai-hedge-fund
+
+This version includes modifications and improvements.
+
 This is a proof of concept for an AI-powered hedge fund.  The goal of this project is to explore the use of AI to make trading decisions.  This project is for **educational** purposes only and is not intended for real trading or investment.
 
 This system employs several agents working together:
